@@ -18,8 +18,8 @@ const AdminDashboard = () => {
   const [filterType, setFilterType] = useState('all');
   const [showUserModal, setShowUserModal] = useState(false);
   const [showMentorModal, setShowMentorModal] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showKNQAModal, setShowKNQAModal] = useState(false);
+  const [, setShowUploadModal] = useState(false);
+  const [, setShowKNQAModal] = useState(false);
   const [notification, setNotification] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(null);
   
@@ -78,6 +78,7 @@ const AdminDashboard = () => {
     if (user && user.userType === 'admin') {
       fetchUsers();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Update page title when users are loaded
@@ -230,10 +231,7 @@ const AdminDashboard = () => {
     setShowMentorModal(true);
   };
 
-  const handleManagePermissions = () => {
-    // Implementation for managing permissions
-    alert('Permission management will be implemented here');
-  };
+  
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
