@@ -1,6 +1,12 @@
 import axios from 'axios';
 
+<<<<<<< HEAD
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://kingdom-equippers-rpl.vercel.app';
+=======
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL ||
+  'https://kingdom-equippers-rpl.vercel.app';
+>>>>>>> 5b3598e (Initial commit)
 
 // Create axios instance
 const api = axios.create({
@@ -10,7 +16,11 @@ const api = axios.create({
   },
 });
 
+<<<<<<< HEAD
 // Add token to requests if available
+=======
+// 🔹 Add token to requests if available
+>>>>>>> 5b3598e (Initial commit)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('rpl_token');
   if (token) {
@@ -19,11 +29,42 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+<<<<<<< HEAD
 // API functions
+=======
+// 🔹 Handle unverified / unauthorized users globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      const status = error.response.status;
+      const message = error.response.data?.message;
+
+      // If token expired or missing → redirect to login
+      if (status === 401) {
+        localStorage.removeItem('rpl_token');
+        window.location.href = '/login';
+      }
+
+      // If user not verified → redirect to verify page
+      if (
+        status === 403 ||
+        (message && message.toLowerCase().includes('not verified'))
+      ) {
+        window.location.href = '/verify-email';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// ================== AUTH API ==================
+>>>>>>> 5b3598e (Initial commit)
 export const authAPI = {
   // Sign up user
   signUp: async (userData) => {
     try {
+<<<<<<< HEAD
       // Ensure age is sent as integer and format phone number
       const dataToSend = {
         ...userData,
@@ -31,6 +72,13 @@ export const authAPI = {
         phone_no: userData.phone_no // Keep original format as backend expects
       };
       
+=======
+      const dataToSend = {
+        ...userData,
+        age: parseInt(userData.age, 10),
+        phone_no: userData.phone_no,
+      };
+>>>>>>> 5b3598e (Initial commit)
       const response = await api.post('/signUp', dataToSend);
       return response.data;
     } catch (error) {
@@ -68,7 +116,11 @@ export const authAPI = {
     }
   },
 
+<<<<<<< HEAD
   // Forgot password - request reset code
+=======
+  // Forgot password
+>>>>>>> 5b3598e (Initial commit)
   forgotPassword: async (email) => {
     try {
       const response = await api.post('/forgot-password', { email });
@@ -109,7 +161,11 @@ export const authAPI = {
   },
 };
 
+<<<<<<< HEAD
 // Admin API functions
+=======
+// ================== ADMIN API ==================
+>>>>>>> 5b3598e (Initial commit)
 export const adminAPI = {
   // Get all users
   getAllUsers: async () => {

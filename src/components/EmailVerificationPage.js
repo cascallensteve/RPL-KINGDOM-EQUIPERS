@@ -14,18 +14,54 @@ const EmailVerificationPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [email, setEmail] = useState('');
+<<<<<<< HEAD
 
   useEffect(() => {
     // Get email from user context or localStorage
     const userEmail = user?.email || localStorage.getItem('temp_user_email');
     if (userEmail) {
       setEmail(userEmail);
+=======
+  const [autoSent, setAutoSent] = useState(false);
+
+  useEffect(() => {
+    // Prefer logged-in user's email; fallback to stored email
+    const preferred = (user?.email || localStorage.getItem('temp_user_email') || '').trim().toLowerCase();
+    if (preferred) {
+      setEmail(preferred);
+      try {
+        // Keep storage in sync to avoid stale values from signup
+        localStorage.setItem('temp_user_email', preferred);
+      } catch (_) {}
+>>>>>>> 5b3598e (Initial commit)
     } else {
       // Redirect to login if no email found
       navigate('/login');
     }
   }, [user, navigate]);
 
+<<<<<<< HEAD
+=======
+  // Auto-send OTP once when email is known
+  useEffect(() => {
+    if (!email || autoSent) return;
+    const send = async () => {
+      setResendLoading(true);
+      setError('');
+      try {
+        const response = await authAPI.resendVerificationOTP(email);
+        setSuccess(response.message || 'Verification code sent. Please check your email.');
+      } catch (err) {
+        setError(err.detail || err.message || 'Failed to send verification code. Please try again.');
+      } finally {
+        setResendLoading(false);
+        setAutoSent(true);
+      }
+    };
+    send();
+  }, [email, autoSent]);
+
+>>>>>>> 5b3598e (Initial commit)
   const handleChange = (e) => {
     setOtp(e.target.value);
     setError('');

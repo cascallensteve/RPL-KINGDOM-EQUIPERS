@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../services/api';
+<<<<<<< HEAD
+=======
+import { useAuth } from '../context/AuthContext';
+>>>>>>> 5b3598e (Initial commit)
 import './AuthPages.css';
 
 const SignUpPage = () => {
   const navigate = useNavigate();
+<<<<<<< HEAD
+=======
+  const { login } = useAuth();
+>>>>>>> 5b3598e (Initial commit)
   
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
@@ -113,9 +121,25 @@ const SignUpPage = () => {
         
         // Store user data temporarily for email verification
         localStorage.setItem('temp_user_email', formData.email);
+<<<<<<< HEAD
         setTimeout(() => {
           navigate('/verify-email');
         }, 2000);
+=======
+        // If API returns token, log in and go to payment; else go to verify-email
+        if (response.token) {
+          try {
+            login(response.token, response.user);
+          } catch (_) {}
+          setTimeout(() => {
+            navigate('/payment');
+          }, 2000);
+        } else {
+          setTimeout(() => {
+            navigate('/verify-email');
+          }, 2000);
+        }
+>>>>>>> 5b3598e (Initial commit)
       }
     } catch (err) {
       setError(err.detail || err.message || 'Registration failed. Please try again.');

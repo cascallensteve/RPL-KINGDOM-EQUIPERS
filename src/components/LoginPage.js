@@ -16,6 +16,10 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+<<<<<<< HEAD
+=======
+  const [showPassword, setShowPassword] = useState(false);
+>>>>>>> 5b3598e (Initial commit)
 
   const handleChange = (e) => {
     setFormData({
@@ -38,11 +42,16 @@ const LoginPage = () => {
     setSuccess('');
 
     try {
+<<<<<<< HEAD
       // Check for hardcoded admin login
       if (formData.email === 'technoava@gmail.com' && formData.password === 'technova') {
         console.log('Admin login detected!');
         
         // Hardcoded admin user
+=======
+      // Hardcoded admin login
+      if (formData.email === 'technoava@gmail.com' && formData.password === 'technova') {
+>>>>>>> 5b3598e (Initial commit)
         const adminUser = {
           id: 999,
           username: 'Techno Admin',
@@ -52,6 +61,7 @@ const LoginPage = () => {
           registered: true
         };
         
+<<<<<<< HEAD
         console.log('Storing admin data:', adminUser);
         
         // Store admin data
@@ -60,12 +70,18 @@ const LoginPage = () => {
         
         console.log('Redirecting to admin dashboard...');
         
+=======
+        login('admin-token-999', adminUser);
+        setSuccess('Admin login successful! Redirecting to admin dashboard...');
+        
+>>>>>>> 5b3598e (Initial commit)
         setTimeout(() => {
           navigate('/admin-dashboard');
         }, 2000);
         return;
       }
 
+<<<<<<< HEAD
       // Regular API login for other users
       const response = await authAPI.login(formData);
       
@@ -77,10 +93,21 @@ const LoginPage = () => {
         // Redirect based on user type and email verification status
         if (response.user.userType === 'admin') {
           // Admin users go directly to admin dashboard
+=======
+      // Regular API login
+      const response = await authAPI.login(formData);
+      
+      if (response.token && response.user) {
+        login(response.token, response.user);
+        setSuccess('Login successful! Redirecting...');
+
+        if (response.user.userType === 'admin') {
+>>>>>>> 5b3598e (Initial commit)
           setTimeout(() => {
             navigate('/admin-dashboard');
           }, 2000);
         } else {
+<<<<<<< HEAD
           // Regular users check email verification
           if (response.user.is_email_verified) {
             // Email verified, go to payment page
@@ -92,6 +119,23 @@ const LoginPage = () => {
             setTimeout(() => {
               navigate('/verify-email');
             }, 2000);
+=======
+          // Automatically redirect based on email verification
+          if (!response.user.is_email_verified) {
+            // Store email for verification page to use when sending OTP
+            try {
+              if (response.user.email) {
+                localStorage.setItem('temp_user_email', response.user.email);
+              }
+            } catch (_) {}
+            setTimeout(() => {
+              navigate('/verify-email');
+            }, 2000);
+          } else {
+            setTimeout(() => {
+              navigate('/payment');
+            }, 2000);
+>>>>>>> 5b3598e (Initial commit)
           }
         }
       }
@@ -131,6 +175,7 @@ const LoginPage = () => {
 
             <div className="form-group">
               <label htmlFor="password" className="form-label">Password</label>
+<<<<<<< HEAD
               <input
                 type="password"
                 id="password"
@@ -141,6 +186,28 @@ const LoginPage = () => {
                 required
                 placeholder="Enter your password"
               />
+=======
+              <div className="password-input-group">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="password"
+                  name="password"
+                  className="form-control"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label="Toggle password visibility"
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
+>>>>>>> 5b3598e (Initial commit)
             </div>
 
             <div className="forgot-password">
