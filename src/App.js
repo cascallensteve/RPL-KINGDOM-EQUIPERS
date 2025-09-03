@@ -4,39 +4,57 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
 import SignUpPage from './components/SignUpPage';
+import AdminSignupPage from './components/AdminSignupPage';
 import EmailVerificationPage from './components/EmailVerificationPage';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
 import PaymentPage from './components/PaymentPage';
 import Dashboard from './components/Dashboard';
-import AdminDashboard from './admin/AdminDashboard';
+import SimpleAdminDashboard from './admin/SimpleAdminDashboard';
 import './App.css';
 
-// Protected Route Component
-const ProtectedRoute = ({ children }) => {
+// Simple Protected Route Component
+const ProtectedRoute = ({ children, requireAdmin = false }) => {
   const { user, loading } = useAuth();
 
+  console.log('ProtectedRoute:', { 
+    requireAdmin, 
+    user: user ? { userType: user.userType, email: user.email } : null, 
+    loading,
+    pathname: window.location.pathname
+  });
+
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: '18px',
+        color: '#28a745'
+      }}>
+        Loading...
+      </div>
+    );
   }
 
   if (!user) {
-    return <Navigate to="/login" />;
+    console.log('No user found, redirecting to login');
+    return <Navigate to="/login" replace />;
   }
 
-  // Redirect based on user type
-  if (user.userType === 'admin') {
-    // If admin tries to access client dashboard, redirect to admin dashboard
-    if (window.location.pathname === '/dashboard') {
-      return <Navigate to="/admin-dashboard" />;
-    }
-  } else {
-    // If client tries to access admin dashboard, redirect to client dashboard
-    if (window.location.pathname === '/admin-dashboard') {
-      return <Navigate to="/dashboard" />;
-    }
+  if (requireAdmin && user.userType !== 'admin') {
+    console.log('Admin required but user is not admin, redirecting to dashboard');
+    return <Navigate to="/dashboard" replace />;
   }
 
+  if (!requireAdmin && user.userType === 'admin') {
+    console.log('User is admin but trying to access user dashboard, redirecting to admin');
+    return <Navigate to="/admin-dashboard" replace />;
+  }
+
+  console.log('Access granted');
   return children;
 };
 
@@ -49,6 +67,7 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/admin-signup" element={<AdminSignupPage />} />
             <Route path="/verify-email" element={<EmailVerificationPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -58,7 +77,7 @@ function App() {
             <Route
               path="/dashboard"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireAdmin={false}>
                   <Dashboard />
                 </ProtectedRoute>
               }
@@ -66,8 +85,8 @@ function App() {
             <Route
               path="/admin-dashboard"
               element={
-                <ProtectedRoute>
-                  <AdminDashboard />
+                <ProtectedRoute requireAdmin={true}>
+                  <SimpleAdminDashboard />
                 </ProtectedRoute>
               }
             />

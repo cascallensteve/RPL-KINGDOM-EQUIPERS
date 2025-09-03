@@ -29,10 +29,18 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (authToken, userData) => {
+    console.log('🔐 Login called with:', { authToken, userData });
+    console.log('🔐 Previous user state:', user);
+    console.log('🔐 Previous token state:', token);
+    
     setUser(userData);
     setToken(authToken);
     localStorage.setItem('rpl_token', authToken);
     localStorage.setItem('rpl_user', JSON.stringify(userData));
+    
+    console.log('🔐 Login state updated, user:', userData);
+    console.log('🔐 localStorage rpl_token:', localStorage.getItem('rpl_token'));
+    console.log('🔐 localStorage rpl_user:', localStorage.getItem('rpl_user'));
   };
 
   const logout = () => {
@@ -48,6 +56,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isEmailVerified = user?.is_email_verified || false;
+
+  // Debug: Log user state changes
+  useEffect(() => {
+    console.log('🔍 AuthContext user state changed:', user);
+  }, [user]);
 
   const value = {
     user,

@@ -14,14 +14,6 @@ const EmailVerificationPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [email, setEmail] = useState('');
-<<<<<<< HEAD
-
-  useEffect(() => {
-    // Get email from user context or localStorage
-    const userEmail = user?.email || localStorage.getItem('temp_user_email');
-    if (userEmail) {
-      setEmail(userEmail);
-=======
   const [autoSent, setAutoSent] = useState(false);
 
   useEffect(() => {
@@ -33,15 +25,12 @@ const EmailVerificationPage = () => {
         // Keep storage in sync to avoid stale values from signup
         localStorage.setItem('temp_user_email', preferred);
       } catch (_) {}
->>>>>>> 5b3598e (Initial commit)
     } else {
       // Redirect to login if no email found
       navigate('/login');
     }
   }, [user, navigate]);
 
-<<<<<<< HEAD
-=======
   // Auto-send OTP once when email is known
   useEffect(() => {
     if (!email || autoSent) return;
@@ -61,7 +50,6 @@ const EmailVerificationPage = () => {
     send();
   }, [email, autoSent]);
 
->>>>>>> 5b3598e (Initial commit)
   const handleChange = (e) => {
     setOtp(e.target.value);
     setError('');
@@ -81,37 +69,44 @@ const EmailVerificationPage = () => {
     try {
       const response = await authAPI.verifyEmail({ otp, email });
       
+      // Check if this is an admin user
+      const storedUser = localStorage.getItem('rpl_user');
+      const isAdmin = storedUser ? JSON.parse(storedUser).userType === 'admin' : false;
+      
       if (response.detail === "Email already verified.") {
-        setSuccess('Email already verified! Redirecting to payment...');
-        
-        // Update user context if available
-        if (user) {
-          updateUser({ ...user, is_email_verified: true });
+        if (isAdmin) {
+          setSuccess('Admin email already verified! Redirecting to admin dashboard...');
+          setTimeout(() => {
+            navigate('/admin-dashboard');
+          }, 2000);
+        } else {
+          setSuccess('Email already verified! Redirecting to payment...');
+          setTimeout(() => {
+            navigate('/payment');
+          }, 2000);
         }
-        
-        // Clear temporary email
-        localStorage.removeItem('temp_user_email');
-        
-        // Redirect to payment page
-        setTimeout(() => {
-          navigate('/payment');
-        }, 2000);
       } else {
-        setSuccess('Email verified successfully! Redirecting to payment...');
-        
-        // Update user context if available
-        if (user) {
-          updateUser({ ...user, is_email_verified: true });
+        if (isAdmin) {
+          setSuccess('Admin email verified successfully! Redirecting to admin dashboard...');
+          setTimeout(() => {
+            navigate('/admin-dashboard');
+          }, 2000);
+        } else {
+          setSuccess('Email verified successfully! Redirecting to payment...');
+          setTimeout(() => {
+            navigate('/payment');
+          }, 2000);
         }
-        
-        // Clear temporary email
-        localStorage.removeItem('temp_user_email');
-        
-        // Redirect to payment page
-        setTimeout(() => {
-          navigate('/payment');
-        }, 2000);
       }
+      
+      // Update user context if available
+      if (user) {
+        updateUser({ ...user, is_email_verified: true });
+      }
+      
+      // Clear temporary email
+      localStorage.removeItem('temp_user_email');
+      
     } catch (err) {
       setError(err.detail || err.message || 'Verification failed. Please try again.');
     } finally {

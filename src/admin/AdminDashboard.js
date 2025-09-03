@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { adminAPI } from '../services/api';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -9,153 +8,191 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   
   // State management
-  const [activeTab, setActiveTab] = useState('overview');
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userDetails, setUserDetails] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
   const [showUserModal, setShowUserModal] = useState(false);
   const [showMentorModal, setShowMentorModal] = useState(false);
-  const [, setShowUploadModal] = useState(false);
-  const [, setShowKNQAModal] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [lastRefresh, setLastRefresh] = useState(null);
-  
-  // Dynamic stats calculated from real data
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    verifiedUsers: 0,
-    activeUsers: 0,
-    newThisWeek: 0,
-    pendingApprovals: 0,
-    totalMentors: 0,
-    activeMentorships: 0,
-    completedMentorships: 0
-  });
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const [recentActivity] = useState([
-    { id: 1, user: 'John Doe', action: 'Completed registration', time: '2 hours ago', type: 'registration' },
-    { id: 2, user: 'Jane Smith', action: 'Uploaded sermon video', time: '4 hours ago', type: 'upload' },
-    { id: 3, user: 'Mike Johnson', action: 'Assigned to mentor', time: '6 hours ago', type: 'mentorship' },
-    { id: 4, user: 'Sarah Wilson', action: 'Completed KNQA checklist', time: '1 day ago', type: 'knqa' },
-    { id: 5, user: 'David Brown', action: 'Payment completed', time: '1 day ago', type: 'payment' }
-  ]);
-
-  const [mentors] = useState([
+  const mentors = [
     { id: 1, name: 'Dr. James Kiprop', email: 'james.kiprop@rpl.com', specialization: 'Theology', activeCandidates: 5 },
     { id: 2, name: 'Prof. Mary Wanjiku', email: 'mary.wanjiku@rpl.com', specialization: 'Biblical Studies', activeCandidates: 3 },
     { id: 3, name: 'Rev. Peter Ochieng', email: 'peter.ochieng@rpl.com', specialization: 'Pastoral Care', activeCandidates: 7 },
     { id: 4, name: 'Dr. Grace Akinyi', email: 'grace.akinyi@rpl.com', specialization: 'Church Leadership', activeCandidates: 4 }
-  ]);
+  ];
 
-  const [knqaChecklist] = useState([
-    { id: 1, category: 'Academic Requirements', items: [
-      { id: 1, title: 'Bachelor\'s Degree Certificate', completed: true },
-      { id: 2, title: 'Academic Transcripts', completed: true },
-      { id: 3, title: 'Professional Certifications', completed: false }
-    ]},
-    { id: 2, category: 'Experience Documentation', items: [
-      { id: 4, title: 'Work Experience Letters', completed: true },
-      { id: 5, title: 'Service Records', completed: true },
-      { id: 6, title: 'Leadership Roles Evidence', completed: false }
-    ]},
-    { id: 3, category: 'Skills Assessment', items: [
-      { id: 7, title: 'Technical Skills Evaluation', completed: false },
-      { id: 8, title: 'Soft Skills Assessment', completed: false },
-      { id: 9, title: 'Practical Competency Test', completed: false }
-    ]},
-    { id: 4, category: 'Portfolio Requirements', items: [
-      { id: 10, title: 'Project Documentation', completed: true },
-      { id: 11, title: 'Sermon Videos', completed: false },
-      { id: 12, title: 'Teaching Materials', completed: false }
-    ]}
-  ]);
-
-  // Fetch users on component mount
+  // Validate admin session on mount
   useEffect(() => {
     if (user && user.userType === 'admin') {
-      fetchUsers();
+      // Validate token exists and is properly formatted
+      const token = localStorage.getItem('rpl_token');
+      if (!token) {
+        showNotification('Authentication token missing. Please log in again.', 'error');
+        setTimeout(() => {
+          logout();
+          navigate('/login', { replace: true });
+        }, 2000);
+        return;
+      }
+      
+      // Add a small delay to ensure the component is fully mounted
+      const timer = setTimeout(() => {
+        fetchUsers();
+      }, 500); // Reduced delay for better UX
+      
+      return () => clearTimeout(timer);
+    } else if (user && user.userType !== 'admin') {
+      // Non-admin user trying to access admin dashboard
+      showNotification('Access denied. Admin privileges required.', 'error');
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 2000);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Update page title when users are loaded
   useEffect(() => {
-    if (activeTab === 'users' && users.length > 0) {
-      document.title = `Users (${users.length}) - RPL Admin Dashboard`;
-    } else if (activeTab === 'users') {
-      document.title = 'Users - RPL Admin Dashboard';
-    } else {
-      document.title = 'RPL Admin Dashboard';
-    }
-  }, [activeTab, users.length]);
+    document.title = 'RPL Admin Dashboard';
+  }, []);
 
-  // Check if user is admin
-  if (!user || user.userType !== 'admin') {
+  // Add loading state check
+  if (!user) {
     return (
-      <div className="admin-access-denied">
-        <div className="access-denied-content">
-          <h1>🚫 Access Denied</h1>
-          <p>You don't have permission to access the admin dashboard.</p>
-          <button onClick={() => navigate('/dashboard')} className="btn-primary">
-            Go to Dashboard
-          </button>
+      <div className="admin-loading">
+        <div className="loading-content">
+          <h2>Loading...</h2>
+          <p>Please wait while we verify your credentials.</p>
         </div>
       </div>
     );
   }
 
+  // Check if user is admin - redirect if not
+  if (user.userType !== 'admin') {
+    // Use React Router navigation
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
+
   const fetchUsers = async () => {
     setLoading(true);
+    
+    // Get current token and clean it
+    let currentToken = localStorage.getItem('rpl_token');
+    
+    if (!currentToken) {
+      showNotification('No authentication token found. Please log in again.', 'error');
+      setLoading(false);
+      return;
+    }
+    
+    // Clean the token - remove quotes if present
+    if (currentToken.startsWith('"') && currentToken.endsWith('"')) {
+      currentToken = currentToken.slice(1, -1);
+      localStorage.setItem('rpl_token', currentToken); // Save cleaned token
+    }
+    
     try {
-      const response = await adminAPI.getAllUsers();
-      const fetchedUsers = response.users || [];
+      console.log('🚀 Fetching users from API...');
+      console.log('🔑 Using token:', currentToken ? `${currentToken.substring(0, 20)}...` : 'No token');
+      console.log('🔑 Full token:', currentToken);
+      console.log('👤 User data:', user);
+      
+      const headers = {
+        'Authorization': `Bearer ${currentToken}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      
+      console.log('📨 Request headers:', headers);
+      
+      const response = await fetch('https://kingdom-equippers-rpl.vercel.app/all-users', {
+        method: 'GET',
+        headers: headers
+      });
+      
+      console.log('🌐 Response status:', response.status);
+      console.log('🌐 Response statusText:', response.statusText);
+      console.log('🌐 Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        // Get error details
+        let errorMessage = `API Error: ${response.status} - ${response.statusText}`;
+        let errorDetails = null;
+        
+        try {
+          const errorText = await response.text();
+          console.log('🚨 Raw error response:', errorText);
+          
+          // Try to parse as JSON
+          try {
+            errorDetails = JSON.parse(errorText);
+            console.log('🚨 Parsed error data:', errorDetails);
+            
+            if (errorDetails.message) {
+              errorMessage = errorDetails.message;
+            } else if (errorDetails.detail) {
+              errorMessage = errorDetails.detail;
+            } else if (errorDetails.error) {
+              errorMessage = errorDetails.error;
+            }
+          } catch (jsonError) {
+            console.log('🚨 Error response is not JSON:', errorText);
+            errorMessage = errorText.substring(0, 200); // Limit length
+          }
+        } catch (e) {
+          console.log('🚨 Could not read error response:', e);
+        }
+        
+        if (response.status === 403) {
+          throw new Error('Access denied. You need admin privileges to view users.');
+        } else if (response.status === 401) {
+          // Clear invalid session
+          localStorage.removeItem('rpl_token');
+          localStorage.removeItem('rpl_user');
+          throw new Error('Authentication failed. Please log in again.');
+        } else {
+          throw new Error(errorMessage);
+        }
+      }
+      
+      const data = await response.json();
+      console.log('✅ Users fetched successfully:', data);
+      
+      const fetchedUsers = data.users || data || [];
       setUsers(fetchedUsers);
       
-      // Calculate real-time stats from fetched users
-      const totalUsers = fetchedUsers.length;
-      const verifiedUsers = fetchedUsers.filter(user => user.is_email_verified).length;
-      const activeUsers = fetchedUsers.filter(user => user.registered).length;
-      const newThisWeek = fetchedUsers.filter(user => {
-        // Calculate users registered in the last 7 days
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        // For now, we'll show a reasonable estimate since we don't have registration dates
-        return Math.random() > 0.7; // Simulate 30% of users as new
-      }).length;
-      const pendingApprovals = fetchedUsers.filter(user => !user.is_email_verified).length;
-      const totalMentors = fetchedUsers.filter(user => user.userType === 'mentor').length;
+      showNotification(`Successfully fetched ${fetchedUsers.length} users`, 'success');
       
-      setStats({
-        totalUsers,
-        verifiedUsers,
-        activeUsers,
-        newThisWeek,
-        pendingApprovals,
-        totalMentors,
-        activeMentorships: Math.floor(totalUsers * 0.3), // Estimate based on user count
-        completedMentorships: Math.floor(totalUsers * 0.4) // Estimate based on user count
-      });
-      
-      showNotification(`Successfully fetched ${totalUsers} users`, 'success');
-      setLastRefresh(new Date());
     } catch (error) {
-      console.error('Error fetching users:', error);
-      // Show error message to user
-      showNotification('Failed to fetch users. Please check your connection and try again.', 'error');
+      console.error('❌ Error fetching users:', error);
+      
+      // Handle different error types
+      let errorMessage = 'Failed to fetch users. Please try again.';
+      
+      if (error.message.includes('Authentication failed')) {
+        errorMessage = 'Session expired. Please log in again.';
+        // Force redirect to login after a short delay
+        setTimeout(() => {
+          logout();
+          navigate('/login', { replace: true });
+        }, 2000);
+      } else if (error.message.includes('Access denied')) {
+        errorMessage = 'Access denied. Admin privileges required.';
+      } else if (error.message.includes('NetworkError') || error.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else {
+        errorMessage = error.message;
+      }
+      
+      showNotification(errorMessage, 'error');
+      
+      // Clear data on error
       setUsers([]);
-      setStats({
-        totalUsers: 0,
-        verifiedUsers: 0,
-        activeUsers: 0,
-        newThisWeek: 0,
-        pendingApprovals: 0,
-        totalMentors: 0,
-        activeMentorships: 0,
-        completedMentorships: 0
-      });
     } finally {
       setLoading(false);
     }
@@ -163,17 +200,39 @@ const AdminDashboard = () => {
 
   const fetchUserDetails = async (userId) => {
     try {
-      const response = await adminAPI.getUserDetails(userId);
-      setUserDetails(response['user-details']);
-      setShowUserModal(true);
+      const token = localStorage.getItem('rpl_token');
+      const response = await fetch(`https://kingdom-equippers-rpl.vercel.app/user-details/${userId}/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserDetails(data['user-details'] || data.user || data);
+        setShowUserModal(true);
+      } else {
+        throw new Error('Failed to fetch user details');
+      }
     } catch (error) {
       console.error('Error fetching user details:', error);
+      showNotification('Failed to fetch user details. Please try again.', 'error');
     }
   };
 
   const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
     logout();
-    navigate('/');
+    navigate('/', { replace: true });
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutConfirm(false);
   };
 
   const handleExportData = () => {
@@ -221,523 +280,17 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleSendNotification = () => {
-    // Implementation for sending notifications
-    alert('Notification system will be implemented here');
-  };
-
   const handleAssignMentor = (userId) => {
     setSelectedUser(users.find(u => u.id === userId));
     setShowMentorModal(true);
   };
-
-  
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 5000);
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterType === 'all' || user.userType === filterType;
-    return matchesSearch && matchesFilter;
-  });
 
-  const renderOverview = () => (
-    <div className="overview-content">
-      {/* Stats Grid */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon">👥</div>
-          <div className="stat-content">
-            <h3>{loading ? '...' : stats.totalUsers}</h3>
-            <p>Total Users</p>
-            <small>{loading ? 'Loading...' : 'Real-time from API'}</small>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">✅</div>
-          <div className="stat-content">
-            <h3>{stats.verifiedUsers}</h3>
-            <p>Verified Users</p>
-            <small>{stats.totalUsers > 0 ? Math.round((stats.verifiedUsers / stats.totalUsers) * 100) : 0}%</small>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">🎯</div>
-          <div className="stat-content">
-            <h3>{stats.activeUsers}</h3>
-            <p>Active Users</p>
-            <small>{stats.totalUsers > 0 ? Math.round((stats.activeUsers / stats.totalUsers) * 100) : 0}%</small>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">🆕</div>
-          <div className="stat-content">
-            <h3>{stats.newThisWeek}</h3>
-            <p>New This Week</p>
-            <small>Estimated</small>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">⏳</div>
-          <div className="stat-content">
-            <h3>{stats.pendingApprovals}</h3>
-            <p>Pending Approvals</p>
-            <small>{stats.totalUsers > 0 ? Math.round((stats.pendingApprovals / stats.totalUsers) * 100) : 0}%</small>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">👨‍🏫</div>
-          <div className="stat-content">
-            <h3>{stats.totalMentors}</h3>
-            <p>Total Mentors</p>
-            <small>{stats.totalUsers > 0 ? Math.round((stats.totalMentors / stats.totalUsers) * 100) : 0}%</small>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="quick-actions">
-        <h3>Quick Actions</h3>
-        <div className="actions-grid">
-          <button onClick={handleExportData} className="action-btn">
-            <span className="action-icon">📊</span>
-            <span>Export Data</span>
-          </button>
-          <button onClick={handleSendNotification} className="action-btn">
-            <span className="action-icon">📢</span>
-            <span>Send Notifications</span>
-          </button>
-          <button onClick={() => setShowUploadModal(true)} className="action-btn">
-            <span className="action-icon">📁</span>
-            <span>Upload Portal</span>
-          </button>
-          <button onClick={() => setShowKNQAModal(true)} className="action-btn">
-            <span className="action-icon">📋</span>
-            <span>KNQA Checklist</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="recent-activity">
-        <h3>Recent Activity</h3>
-        <div className="activity-list">
-          {recentActivity.map(activity => (
-            <div key={activity.id} className="activity-item">
-              <div className="activity-icon">
-                {activity.type === 'registration' && '📝'}
-                {activity.type === 'upload' && '📁'}
-                {activity.type === 'mentorship' && '👨‍🏫'}
-                {activity.type === 'knqa' && '📋'}
-                {activity.type === 'payment' && '💰'}
-              </div>
-              <div className="activity-content">
-                <p><strong>{activity.user}</strong> {activity.action}</p>
-                <span className="activity-time">{activity.time}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderUsers = () => (
-    <div className="users-content">
-      {/* Users Header */}
-      <div className="users-header">
-        <div className="header-left">
-          <h2>User Management</h2>
-          <small>Data from: https://kingdom-equippers-rpl.vercel.app/all-users</small>
-        </div>
-        <div className="users-stats">
-          <div className="stat-item">
-            <span className="stat-number">{users.length}</span>
-            <span className="stat-label">Total Users</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{users.filter(u => u.is_email_verified).length}</span>
-            <span className="stat-label">Verified</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{users.filter(u => !u.is_email_verified).length}</span>
-            <span className="stat-label">Pending</span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Search and Filter */}
-      <div className="users-controls">
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Search users..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
-        <div className="filter-box">
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="filter-select"
-          >
-            <option value="all">All Users</option>
-            <option value="client">Clients</option>
-            <option value="admin">Admins</option>
-          </select>
-        </div>
-        <button 
-          onClick={fetchUsers} 
-          className="btn-refresh-controls"
-          title="Refresh users list"
-        >
-          🔄 Refresh
-        </button>
-        {(searchTerm || filterType !== 'all') && (
-          <button 
-            onClick={() => {
-              setSearchTerm('');
-              setFilterType('all');
-            }} 
-            className="btn-clear-filters"
-            title="Clear all filters"
-          >
-            🗑️ Clear Filters
-          </button>
-        )}
-      </div>
-
-      {/* Users Table */}
-      <div className="users-table-container">
-        {loading ? (
-          <div className="loading-state">
-            <div className="loading-spinner"></div>
-            <p>Loading users...</p>
-          </div>
-        ) : users.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">👥</div>
-            <h3>No users found</h3>
-            <p>There are no users to display at the moment.</p>
-            <button onClick={fetchUsers} className="btn-primary">
-              Refresh
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="users-summary">
-              <div className="summary-info">
-                <p>Showing {filteredUsers.length} of {users.length} users</p>
-                {(searchTerm || filterType !== 'all') && (
-                  <small>
-                    Filtered by: {searchTerm && `"${searchTerm}"`} {searchTerm && filterType !== 'all' && 'and'} {filterType !== 'all' && filterType}
-                  </small>
-                )}
-                {lastRefresh && (
-                  <small>Last updated: {lastRefresh.toLocaleTimeString()}</small>
-                )}
-              </div>
-              <button onClick={fetchUsers} className="btn-refresh" title="Refresh users">
-                🔄
-              </button>
-            </div>
-            <table className="users-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>County</th>
-                  <th>Phone</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map(user => (
-                  <tr key={user.id}>
-                    <td>{user.id}</td>
-                    <td>{user.username}</td>
-                    <td>{user.email}</td>
-                    <td>
-                      <span className={`user-type ${user.userType}`}>
-                        {user.userType}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status ${user.is_email_verified ? 'verified' : 'pending'}`}>
-                        {user.is_email_verified ? 'Verified' : 'Pending'}
-                      </span>
-                    </td>
-                    <td>{user.county || 'N/A'}</td>
-                    <td>{user.phone_no || 'N/A'}</td>
-                    <td>
-                      <div className="action-buttons">
-                        <button
-                          onClick={() => fetchUserDetails(user.id)}
-                          className="btn-view"
-                          title="View Details"
-                        >
-                          👁️
-                        </button>
-                        <button
-                          onClick={() => handleAssignMentor(user.id)}
-                          className="btn-assign"
-                          title="Assign Mentor"
-                        >
-                          👨‍🏫
-                        </button>
-                        <button
-                          className="btn-edit"
-                          title="Edit User"
-                        >
-                          ✏️
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderMentorship = () => (
-    <div className="mentorship-content">
-      <div className="mentorship-header">
-        <h3>Mentorship Management</h3>
-        <button className="btn-primary">Add New Mentor</button>
-      </div>
-      
-      <div className="mentorship-stats">
-        <div className="mentorship-stat">
-          <h4>{stats.activeMentorships}</h4>
-          <p>Active Mentorships</p>
-        </div>
-        <div className="mentorship-stat">
-          <h4>{stats.completedMentorships}</h4>
-          <p>Completed</p>
-        </div>
-        <div className="mentorship-stat">
-          <h4>{stats.totalMentors}</h4>
-          <p>Available Mentors</p>
-        </div>
-      </div>
-
-      <div className="mentors-grid">
-        {mentors.map(mentor => (
-          <div key={mentor.id} className="mentor-card">
-            <div className="mentor-header">
-              <div className="mentor-avatar">
-                {mentor.name.charAt(0)}
-              </div>
-              <div className="mentor-info">
-                <h4>{mentor.name}</h4>
-                <p>{mentor.email}</p>
-                <span className="mentor-specialization">{mentor.specialization}</span>
-              </div>
-            </div>
-            <div className="mentor-stats">
-              <div className="mentor-stat">
-                <span className="stat-number">{mentor.activeCandidates}</span>
-                <span className="stat-label">Active Candidates</span>
-              </div>
-            </div>
-            <div className="mentor-actions">
-              <button className="btn-secondary">View Candidates</button>
-              <button className="btn-primary">Assign New</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderUploadPortal = () => (
-    <div className="upload-content">
-      <div className="upload-header">
-        <h3>Upload Portal</h3>
-        <p>Secure uploads for sermons, teaching videos, and testimonials</p>
-      </div>
-
-      <div className="upload-categories">
-        <div className="upload-category">
-          <div className="category-icon">📖</div>
-          <h4>Sermons</h4>
-          <p>Upload sermon videos and audio files</p>
-          <button className="btn-primary">Upload Sermon</button>
-        </div>
-        <div className="upload-category">
-          <div className="category-icon">🎓</div>
-          <h4>Teaching Videos</h4>
-          <p>Educational content and training materials</p>
-          <button className="btn-primary">Upload Teaching</button>
-        </div>
-        <div className="upload-category">
-          <div className="category-icon">💬</div>
-          <h4>Testimonials</h4>
-          <p>Personal testimonies and success stories</p>
-          <button className="btn-primary">Upload Testimonial</button>
-        </div>
-        <div className="upload-category">
-          <div className="category-icon">📋</div>
-          <h4>Documents</h4>
-          <p>Certificates, transcripts, and other documents</p>
-          <button className="btn-primary">Upload Document</button>
-        </div>
-      </div>
-
-      <div className="recent-uploads">
-        <h4>Recent Uploads</h4>
-        <div className="uploads-list">
-          <div className="upload-item">
-            <div className="upload-icon">📹</div>
-            <div className="upload-info">
-              <h5>Sermon on Faith</h5>
-              <p>Uploaded by John Doe • 2 hours ago</p>
-            </div>
-            <div className="upload-status approved">Approved</div>
-          </div>
-          <div className="upload-item">
-            <div className="upload-icon">📄</div>
-            <div className="upload-info">
-              <h5>Teaching Certificate</h5>
-              <p>Uploaded by Jane Smith • 1 day ago</p>
-            </div>
-            <div className="upload-status pending">Pending Review</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderKNQAChecklist = () => (
-    <div className="knqa-content">
-      <div className="knqa-header">
-        <h3>KNQA Checklist Management</h3>
-        <p>Digitized checklist aligned to KNQA standards</p>
-      </div>
-
-      <div className="knqa-progress">
-        <div className="progress-overview">
-          <h4>Overall Progress</h4>
-          <div className="progress-bar">
-            <div className="progress-fill" style={{ width: '65%' }}></div>
-          </div>
-          <span className="progress-text">65% Complete</span>
-        </div>
-      </div>
-
-      <div className="knqa-categories">
-        {knqaChecklist.map(category => (
-          <div key={category.id} className="knqa-category">
-            <h4>{category.category}</h4>
-            <div className="checklist-items">
-              {category.items.map(item => (
-                <div key={item.id} className="checklist-item">
-                  <div className={`checkbox ${item.completed ? 'checked' : ''}`}>
-                    {item.completed && '✓'}
-                  </div>
-                  <span className="item-title">{item.title}</span>
-                  <div className="item-actions">
-                    <button className="btn-sm">View</button>
-                    <button className="btn-sm">Edit</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderAnalytics = () => (
-    <div className="analytics-content">
-      <h3>Platform Analytics</h3>
-      <div className="analytics-grid">
-        <div className="analytics-card">
-          <h4>User Growth</h4>
-          <div className="chart-placeholder">
-            📈 Chart will be implemented here
-          </div>
-        </div>
-        <div className="analytics-card">
-          <h4>Registration Trends</h4>
-          <div className="chart-placeholder">
-            📊 Chart will be implemented here
-          </div>
-        </div>
-        <div className="analytics-card">
-          <h4>Payment Analytics</h4>
-          <div className="chart-placeholder">
-            💰 Chart will be implemented here
-          </div>
-        </div>
-        <div className="analytics-card">
-          <h4>Mentorship Success Rate</h4>
-          <div className="chart-placeholder">
-            🎯 Chart will be implemented here
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderSettings = () => (
-    <div className="settings-content">
-      <h3>System Settings</h3>
-      <div className="settings-grid">
-        <div className="settings-card">
-          <h4>General Settings</h4>
-          <div className="setting-item">
-            <label>System Name</label>
-            <input type="text" defaultValue="RPL System" />
-          </div>
-          <div className="setting-item">
-            <label>Admin Email</label>
-            <input type="email" defaultValue="admin@rpl.com" />
-          </div>
-        </div>
-        <div className="settings-card">
-          <h4>Security Settings</h4>
-          <div className="setting-item">
-            <label>Session Timeout (minutes)</label>
-            <input type="number" defaultValue="30" />
-          </div>
-          <div className="setting-item">
-            <label>Password Policy</label>
-            <select defaultValue="strong">
-              <option value="basic">Basic</option>
-              <option value="strong">Strong</option>
-              <option value="very-strong">Very Strong</option>
-            </select>
-          </div>
-        </div>
-        <div className="settings-card">
-          <h4>Notification Settings</h4>
-          <div className="setting-item">
-            <label>Email Notifications</label>
-            <input type="checkbox" defaultChecked />
-          </div>
-          <div className="setting-item">
-            <label>SMS Notifications</label>
-            <input type="checkbox" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="admin-dashboard">
@@ -746,47 +299,149 @@ const AdminDashboard = () => {
         <div className="header-content">
           <div className="logo-section">
             <div className="logo">
-              <img 
-                src="https://via.placeholder.com/50x50/28a745/ffffff?text=RPL" 
-                alt="RPL System Logo" 
-                className="logo-image"
-              />
+              <span className="logo-icon">👑</span>
               <div className="logo-text">
                 <h1>RPL System</h1>
                 <p>Admin Portal</p>
               </div>
             </div>
           </div>
+
+          <div className="admin-info">
+            <div className="admin-details">
+              <span className="admin-welcome">Welcome, {user?.username || user?.email || 'Admin'}</span>
+              <div className="session-status">
+                <span className="status-dot"></span>
+                <span>Session Active</span>
+              </div>
+            </div>
+          </div>
           
           <div className="header-actions">
-            <div className="notification-bell">
-              <span className="notification-icon">🔔</span>
-              <span className="notification-count">3</span>
-              <div className="notifications-dropdown">
-                <div className="notification-item">
-                  <p>New user registration</p>
-                  <span>2 min ago</span>
-                </div>
-                <div className="notification-item">
-                  <p>Payment received</p>
-                  <span>5 min ago</span>
-                </div>
-                <div className="notification-item">
-                  <p>Mentor assignment completed</p>
-                  <span>10 min ago</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="user-section">
-              <div className="user-info">
-                <span className="user-name">{user.username}</span>
-                <span className="user-role">Administrator</span>
-              </div>
-              <button onClick={handleLogout} className="btn-logout">
-                Logout
-              </button>
-            </div>
+            <button className="btn-refresh" onClick={fetchUsers} disabled={loading}>
+              {loading ? '🔄 Loading...' : '🔄 Refresh'}
+            </button>
+            <button className="btn-export" onClick={handleExportData} disabled={users.length === 0}>
+              📊 Export
+            </button>
+            <button onClick={handleLogout} className="btn-logout">
+              🚪 Logout
+            </button>
+            <button 
+              onClick={async () => {
+                const token = localStorage.getItem('rpl_token');
+                const userData = localStorage.getItem('rpl_user');
+                
+                console.log('🧪 Debug Info:');
+                console.log('Token:', token);
+                console.log('User:', userData);
+                
+                if (!token) {
+                  alert('No token found!');
+                  return;
+                }
+                
+                try {
+                  // Test different endpoints and token formats
+                  const endpointsToTest = [
+                    'all-users',
+                    'admin/users',
+                    'admin/all-users', 
+                    'users',
+                    'api/users',
+                    'api/admin/users'
+                  ];
+                  
+                  const tokenFormats = [
+                    { name: 'Bearer format', headers: { 'Authorization': `Bearer ${token}` } },
+                    { name: 'Token format', headers: { 'Authorization': `Token ${token}` } },
+                    { name: 'Direct token', headers: { 'Authorization': token } },
+                    { name: 'X-Auth-Token', headers: { 'X-Auth-Token': token } },
+                  ];
+                  
+                  let successFound = false;
+                  
+                  // Test main endpoint with different token formats first
+                  for (const format of tokenFormats) {
+                    if (successFound) break;
+                    
+                    console.log(`🧪 Testing endpoint 'all-users' with ${format.name}:`);
+                    console.log('Headers:', format.headers);
+                    
+                    try {
+                      const response = await fetch('https://kingdom-equippers-rpl.vercel.app/all-users', {
+                        method: 'GET',
+                        headers: {
+                          ...format.headers,
+                          'Content-Type': 'application/json'
+                        }
+                      });
+                      
+                      console.log(`all-users + ${format.name} - Status:`, response.status);
+                      
+                      if (response.ok) {
+                        const data = await response.json();
+                        console.log(`✅ SUCCESS: all-users + ${format.name}`, data);
+                        alert(`✅ Found working combination!\nEndpoint: all-users\nAuth: ${format.name}\nStatus: ${response.status}\nUsers: ${data.users?.length || 'N/A'}`);
+                        successFound = true;
+                        break;
+                      } else {
+                        const errorText = await response.text();
+                        console.log(`❌ all-users + ${format.name} - Error (${response.status}):`, errorText);
+                      }
+                    } catch (err) {
+                      console.log(`💥 all-users + ${format.name} - Exception:`, err);
+                    }
+                  }
+                  
+                  // If no success, try different endpoints with Bearer format
+                  if (!successFound) {
+                    console.log('🔄 Trying different endpoints...');
+                    
+                    for (const endpoint of endpointsToTest) {
+                      if (successFound) break;
+                      
+                      console.log(`🧪 Testing endpoint: ${endpoint}`);
+                      
+                      try {
+                        const response = await fetch(`https://kingdom-equippers-rpl.vercel.app/${endpoint}`, {
+                          method: 'GET',
+                          headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                          }
+                        });
+                        
+                        console.log(`${endpoint} - Status:`, response.status);
+                        
+                        if (response.ok) {
+                          const data = await response.json();
+                          console.log(`✅ SUCCESS: ${endpoint}`, data);
+                          alert(`✅ Found working endpoint!\nEndpoint: ${endpoint}\nStatus: ${response.status}\nData: ${JSON.stringify(data).substring(0, 100)}...`);
+                          successFound = true;
+                          break;
+                        } else {
+                          const errorText = await response.text();
+                          console.log(`❌ ${endpoint} - Error (${response.status}):`, errorText);
+                        }
+                      } catch (err) {
+                        console.log(`💥 ${endpoint} - Exception:`, err);
+                      }
+                    }
+                  }
+                  
+                  if (!successFound) {
+                    alert('❌ No working combination found. Check console for details.');
+                  }
+                } catch (error) {
+                  console.error('Test error:', error);
+                }
+              }}
+              className="btn-refresh"
+              style={{ marginLeft: '10px' }}
+            >
+              🧪 Debug API
+            </button>
           </div>
         </div>
       </div>
@@ -804,64 +459,116 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Navigation Tabs */}
-      <div className="admin-nav">
-        <div className="nav-tabs">
-          <button
-            className={`nav-tab ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            📊 Overview
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
-          >
-            👥 Users
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'mentorship' ? 'active' : ''}`}
-            onClick={() => setActiveTab('mentorship')}
-          >
-            👨‍🏫 Mentorship
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'uploads' ? 'active' : ''}`}
-            onClick={() => setActiveTab('uploads')}
-          >
-            📁 Upload Portal
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'knqa' ? 'active' : ''}`}
-            onClick={() => setActiveTab('knqa')}
-          >
-            📋 KNQA Checklist
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'analytics' ? 'active' : ''}`}
-            onClick={() => setActiveTab('analytics')}
-          >
-            📈 Analytics
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-          >
-            ⚙️ Settings
-          </button>
-        </div>
-      </div>
-
       {/* Main Content */}
-      <div className="admin-content">
-        {activeTab === 'overview' && renderOverview()}
-        {activeTab === 'users' && renderUsers()}
-        {activeTab === 'mentorship' && renderMentorship()}
-        {activeTab === 'uploads' && renderUploadPortal()}
-        {activeTab === 'knqa' && renderKNQAChecklist()}
-        {activeTab === 'analytics' && renderAnalytics()}
-        {activeTab === 'settings' && renderSettings()}
-      </div>
+      <main className="admin-main">
+        <div className="content-header">
+          <h2>👥 User Management</h2>
+          <p>Manage all registered users in the RPL system</p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-icon">👥</div>
+            <div className="stat-content">
+              <h3>{users.length}</h3>
+              <p>Total Users</p>
+            </div>
+          </div>
+          
+          <div className="stat-card">
+            <div className="stat-icon">✅</div>
+            <div className="stat-content">
+              <h3>{users.filter(u => u.is_email_verified).length}</h3>
+              <p>Verified Users</p>
+            </div>
+          </div>
+          
+          <div className="stat-card">
+            <div className="stat-icon">⏳</div>
+            <div className="stat-content">
+              <h3>{users.filter(u => !u.is_email_verified).length}</h3>
+              <p>Pending Verification</p>
+            </div>
+          </div>
+          
+          <div className="stat-card">
+            <div className="stat-icon">👨‍🏫</div>
+            <div className="stat-content">
+              <h3>{users.filter(u => u.userType === 'mentor').length}</h3>
+              <p>Mentors</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Users Table */}
+        <div className="users-section">
+          <div className="section-header">
+            <h3>📋 Users List</h3>
+            <span className="user-count">{users.length} users found</span>
+          </div>
+          
+          {loading ? (
+            <div className="loading-state">
+              <div className="spinner"></div>
+              <p>Loading users...</p>
+            </div>
+          ) : users.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-icon">📭</span>
+              <h4>No users found</h4>
+              <p>Click refresh to load users or check your connection.</p>
+            </div>
+          ) : (
+            <div className="users-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>County</th>
+                    <th>Phone</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map(user => (
+                    <tr key={user.id}>
+                      <td>{user.id}</td>
+                      <td className="user-name">{user.username}</td>
+                      <td className="user-email">{user.email}</td>
+                      <td>
+                        <span className={`user-type ${user.userType}`}>
+                          {user.userType}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`status ${user.is_email_verified ? 'verified' : 'pending'}`}>
+                          {user.is_email_verified ? '✅ Verified' : '⏳ Pending'}
+                        </span>
+                      </td>
+                      <td>{user.county || 'N/A'}</td>
+                      <td>{user.phone_no || 'N/A'}</td>
+                      <td>
+                        <button 
+                          onClick={() => fetchUserDetails(user.id)}
+                          className="btn-secondary"
+                          style={{marginRight: '5px', padding: '4px 8px', fontSize: '0.8rem'}}
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </main>
 
       {/* User Details Modal */}
       {showUserModal && userDetails && (
@@ -921,10 +628,6 @@ const AdminDashboard = () => {
                   <label>Registered:</label>
                   <span>{userDetails.registered ? 'Yes' : 'No'}</span>
                 </div>
-                <div className="detail-item">
-                  <label>Last Updated:</label>
-                  <span>{new Date().toLocaleDateString()}</span>
-                </div>
               </div>
             </div>
             <div className="modal-footer">
@@ -937,9 +640,6 @@ const AdminDashboard = () => {
                 disabled={userDetails.userType === 'admin'}
               >
                 {userDetails.userType === 'admin' ? 'Admin User' : 'Assign Mentor'}
-              </button>
-              <button className="btn-primary">
-                Edit User
               </button>
             </div>
           </div>
@@ -974,6 +674,32 @@ const AdminDashboard = () => {
               </button>
               <button className="btn-primary">
                 Assign Mentor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="logout-modal-overlay" onClick={cancelLogout}>
+          <div className="logout-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="logout-modal-header">
+              <div className="logout-icon">🚪</div>
+              <h3>Confirm Logout</h3>
+            </div>
+            
+            <div className="logout-modal-content">
+              <p>Are you sure you want to log out of the admin panel?</p>
+              <p className="logout-warning">You will need to log in again to access the admin dashboard.</p>
+            </div>
+            
+            <div className="logout-modal-actions">
+              <button onClick={cancelLogout} className="btn-cancel-logout">
+                Cancel
+              </button>
+              <button onClick={confirmLogout} className="btn-confirm-logout">
+                Yes, Logout
               </button>
             </div>
           </div>

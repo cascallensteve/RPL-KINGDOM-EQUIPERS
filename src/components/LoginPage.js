@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
@@ -6,7 +6,7 @@ import './AuthPages.css';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   
   const [formData, setFormData] = useState({
     email: '',
@@ -16,10 +16,20 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-<<<<<<< HEAD
-=======
   const [showPassword, setShowPassword] = useState(false);
->>>>>>> 5b3598e (Initial commit)
+
+  // Check if user is already logged in and redirect them
+  useEffect(() => {
+    if (user) {
+      console.log('User already logged in, redirecting:', user);
+      // Let ProtectedRoute handle the redirect instead of doing it here
+      if (user.userType === 'admin') {
+        navigate('/admin-dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [user, navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -42,84 +52,30 @@ const LoginPage = () => {
     setSuccess('');
 
     try {
-<<<<<<< HEAD
-      // Check for hardcoded admin login
-      if (formData.email === 'technoava@gmail.com' && formData.password === 'technova') {
-        console.log('Admin login detected!');
-        
-        // Hardcoded admin user
-=======
-      // Hardcoded admin login
-      if (formData.email === 'technoava@gmail.com' && formData.password === 'technova') {
->>>>>>> 5b3598e (Initial commit)
-        const adminUser = {
-          id: 999,
-          username: 'Techno Admin',
-          email: 'technoava@gmail.com',
-          userType: 'admin',
-          is_email_verified: true,
-          registered: true
-        };
-        
-<<<<<<< HEAD
-        console.log('Storing admin data:', adminUser);
-        
-        // Store admin data
-        login('admin-token-999', adminUser);
-        setSuccess('Admin login successful! Redirecting to admin dashboard...');
-        
-        console.log('Redirecting to admin dashboard...');
-        
-=======
-        login('admin-token-999', adminUser);
-        setSuccess('Admin login successful! Redirecting to admin dashboard...');
-        
->>>>>>> 5b3598e (Initial commit)
-        setTimeout(() => {
-          navigate('/admin-dashboard');
-        }, 2000);
-        return;
-      }
-
-<<<<<<< HEAD
-      // Regular API login for other users
+      // API login for all users (including admin)
       const response = await authAPI.login(formData);
       
       if (response.token && response.user) {
-        // Store user data
-        login(response.token, response.user);
-        setSuccess('Login successful! Redirecting...');
+        console.log('🔐 API Login Response:', response);
+        console.log('🔐 User Type:', response.user.userType);
+        console.log('🔐 Token:', response.token ? 'Token received' : 'No token');
+        console.log('🔐 Token length:', response.token?.length || 0);
+        console.log('🔐 Token preview:', response.token?.substring(0, 20) + '...');
         
-        // Redirect based on user type and email verification status
-        if (response.user.userType === 'admin') {
-          // Admin users go directly to admin dashboard
-=======
-      // Regular API login
-      const response = await authAPI.login(formData);
-      
-      if (response.token && response.user) {
+        // Store token immediately to verify it's saved
+        localStorage.setItem('rpl_token', response.token);
+        localStorage.setItem('rpl_user', JSON.stringify(response.user));
+        
+        console.log('🔐 Stored token in localStorage:', localStorage.getItem('rpl_token') ? 'Success' : 'Failed');
+        console.log('🔐 Stored user in localStorage:', localStorage.getItem('rpl_user') ? 'Success' : 'Failed');
+        
         login(response.token, response.user);
         setSuccess('Login successful! Redirecting...');
 
+        // Use React Router navigation
         if (response.user.userType === 'admin') {
->>>>>>> 5b3598e (Initial commit)
-          setTimeout(() => {
-            navigate('/admin-dashboard');
-          }, 2000);
+          navigate('/admin-dashboard', { replace: true });
         } else {
-<<<<<<< HEAD
-          // Regular users check email verification
-          if (response.user.is_email_verified) {
-            // Email verified, go to payment page
-            setTimeout(() => {
-              navigate('/payment');
-            }, 2000);
-          } else {
-            // Email not verified, go to verification page
-            setTimeout(() => {
-              navigate('/verify-email');
-            }, 2000);
-=======
           // Automatically redirect based on email verification
           if (!response.user.is_email_verified) {
             // Store email for verification page to use when sending OTP
@@ -128,14 +84,9 @@ const LoginPage = () => {
                 localStorage.setItem('temp_user_email', response.user.email);
               }
             } catch (_) {}
-            setTimeout(() => {
-              navigate('/verify-email');
-            }, 2000);
+            navigate('/verify-email', { replace: true });
           } else {
-            setTimeout(() => {
-              navigate('/payment');
-            }, 2000);
->>>>>>> 5b3598e (Initial commit)
+            navigate('/payment', { replace: true });
           }
         }
       }
@@ -175,18 +126,6 @@ const LoginPage = () => {
 
             <div className="form-group">
               <label htmlFor="password" className="form-label">Password</label>
-<<<<<<< HEAD
-              <input
-                type="password"
-                id="password"
-                name="password"
-                className="form-control"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                placeholder="Enter your password"
-              />
-=======
               <div className="password-input-group">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -207,7 +146,6 @@ const LoginPage = () => {
                   {showPassword ? '🙈' : '👁️'}
                 </button>
               </div>
->>>>>>> 5b3598e (Initial commit)
             </div>
 
             <div className="forgot-password">
@@ -225,6 +163,58 @@ const LoginPage = () => {
 
           <div className="link-text">
             Don't have an account? <Link to="/signup">Create one here</Link>
+          </div>
+          
+          <div className="admin-link">
+            <Link to="/admin-signup" style={{ color: '#dc2626', fontWeight: '600' }}>
+              🛡️ Admin Registration
+            </Link>
+          </div>
+
+          {/* Debug Section */}
+          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            <button 
+              type="button" 
+              onClick={() => {
+                console.log('=== AUTH DEBUG INFO ===');
+                console.log('localStorage rpl_token:', localStorage.getItem('rpl_token'));
+                console.log('localStorage rpl_user:', localStorage.getItem('rpl_user'));
+                console.log('Current pathname:', window.location.pathname);
+                console.log('======================');
+              }}
+              style={{ 
+                background: '#007bff', 
+                color: 'white',
+                border: 'none', 
+                padding: '8px 16px', 
+                borderRadius: '5px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                marginRight: '10px'
+              }}
+            >
+              Debug Auth State
+            </button>
+
+            <button 
+              type="button" 
+              onClick={() => {
+                localStorage.clear();
+                console.log('Cleared localStorage');
+                window.location.reload();
+              }}
+              style={{ 
+                background: '#dc3545', 
+                color: 'white',
+                border: 'none', 
+                padding: '8px 16px', 
+                borderRadius: '5px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Clear & Reload
+            </button>
           </div>
         </div>
       </div>
