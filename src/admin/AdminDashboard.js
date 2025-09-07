@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import './AdminDashboard.css';
+import { FiDownload, FiDollarSign, FiClock, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
+import { formatDistanceToNow } from 'date-fns';
+
+// Helper function to format time ago
+const formatTimeAgo = (dateString) => {
+  if (!dateString) return 'Just now';
+  try {
+    return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+  } catch (e) {
+    return 'Some time ago';
+  }
+};
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -16,6 +28,14 @@ const AdminDashboard = () => {
   const [showMentorModal, setShowMentorModal] = useState(false);
   const [notification, setNotification] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [payments, setPayments] = useState([]);
+  const [activeTab, setActiveTab] = useState('users');
+  const [paymentLoading, setPaymentLoading] = useState(false);
+
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   const mentors = [
     { id: 1, name: 'Dr. James Kiprop', email: 'james.kiprop@rpl.com', specialization: 'Theology', activeCandidates: 5 },
@@ -41,6 +61,7 @@ const AdminDashboard = () => {
       // Add a small delay to ensure the component is fully mounted
       const timer = setTimeout(() => {
         fetchUsers();
+        fetchPayments();
       }, 500); // Reduced delay for better UX
       
       return () => clearTimeout(timer);
@@ -58,6 +79,116 @@ const AdminDashboard = () => {
   useEffect(() => {
     document.title = 'RPL Admin Dashboard';
   }, []);
+
+  const fetchPayments = async () => {
+    try {
+      setPaymentLoading(true);
+      const token = localStorage.getItem('rpl_token');
+      const response = await fetch('https://kingdom-equippers-rpl.vercel.app/admin/payments', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch payments');
+      }
+
+      const data = await response.json();
+      // Transform the data to match our expected format
+      const formattedPayments = data.payments.map(payment => ({
+        ...payment,
+        transaction_id: payment.checkout_request_id || payment.merchant_request_id || payment.id,
+        user_name: payment.user ? `${payment.user.first_name} ${payment.user.last_name}` : 'N/A',
+        user_email: payment.user?.email || 'N/A',
+        amount: parseFloat(payment.amount) || 0,
+        status: payment.status || 'pending',
+        created_at: payment.created_at || new Date().toISOString()
+      }));
+      
+      setPayments(formattedPayments);
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      showNotification('Failed to load payment history', 'error');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const checkTransactionStatus = async (checkoutRequestId) => {
+    try {
+      const token = localStorage.getItem('rpl_token');
+      const response = await fetch(`https://kingdom-equippers-rpl.vercel.app/payments/transaction-status/${checkoutRequestId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to check transaction status');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error checking transaction status:', error);
+      showNotification('Failed to check transaction status', 'error');
+      return null;
+    }
+  };
+
+  const downloadReceipt = async (transactionId) => {
+    try {
+      const token = localStorage.getItem('rpl_token');
+      const response = await fetch(`https://kingdom-equippers-rpl.vercel.app/admin/payments/${transactionId}/receipt`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download receipt');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `receipt-${transactionId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      showNotification('Failed to download receipt. Please try again later.', 'error');
+    }
+  };
+
+  const handleRefreshStatus = async (checkoutRequestId) => {
+    try {
+      setPaymentLoading(true);
+      const status = await checkTransactionStatus(checkoutRequestId);
+      if (status) {
+        // Update the payment status in the local state
+        setPayments(prevPayments => 
+          prevPayments.map(payment => 
+            payment.checkout_request_id === checkoutRequestId 
+              ? { ...payment, status: status.status } 
+              : payment
+          )
+        );
+        showNotification('Payment status updated', 'success');
+      }
+    } catch (error) {
+      console.error('Error refreshing status:', error);
+      showNotification('Failed to refresh status', 'error');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
 
   // Add loading state check
   if (!user) {
@@ -285,289 +416,210 @@ const AdminDashboard = () => {
     setShowMentorModal(true);
   };
 
-  const showNotification = (message, type = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 5000);
+
+  const handleViewUser = (userId) => {
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      setSelectedUser(user);
+      setShowUserModal(true);
+    }
   };
 
-
+  const handleCloseModal = () => {
+    setShowUserModal(false);
+    setSelectedUser(null);
+    setUserDetails(null);
+  };
 
   return (
     <div className="admin-dashboard">
-      {/* Header */}
-      <div className="admin-header">
-        <div className="header-content">
-          <div className="logo-section">
-            <div className="logo">
-              <span className="logo-icon">👑</span>
-              <div className="logo-text">
-                <h1>RPL System</h1>
-                <p>Admin Portal</p>
-              </div>
-            </div>
+      <header className="admin-header">
+        <div className="flex items-center space-x-8">
+          <div className="h-24 w-auto">
+            <img 
+              src="/IMAGES/LOGO.png" 
+              alt="Kingdom Equippers Logo" 
+              className="h-full w-auto object-contain"
+            />
           </div>
-
-          <div className="admin-info">
-            <div className="admin-details">
-              <span className="admin-welcome">Welcome, {user?.username || user?.email || 'Admin'}</span>
-              <div className="session-status">
-                <span className="status-dot"></span>
-                <span>Session Active</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="header-actions">
-            <button className="btn-refresh" onClick={fetchUsers} disabled={loading}>
-              {loading ? '🔄 Loading...' : '🔄 Refresh'}
-            </button>
-            <button className="btn-export" onClick={handleExportData} disabled={users.length === 0}>
-              📊 Export
-            </button>
-            <button onClick={handleLogout} className="btn-logout">
-              🚪 Logout
-            </button>
-            <button 
-              onClick={async () => {
-                const token = localStorage.getItem('rpl_token');
-                const userData = localStorage.getItem('rpl_user');
-                
-                console.log('🧪 Debug Info:');
-                console.log('Token:', token);
-                console.log('User:', userData);
-                
-                if (!token) {
-                  alert('No token found!');
-                  return;
-                }
-                
-                try {
-                  // Test different endpoints and token formats
-                  const endpointsToTest = [
-                    'all-users',
-                    'admin/users',
-                    'admin/all-users', 
-                    'users',
-                    'api/users',
-                    'api/admin/users'
-                  ];
-                  
-                  const tokenFormats = [
-                    { name: 'Bearer format', headers: { 'Authorization': `Bearer ${token}` } },
-                    { name: 'Token format', headers: { 'Authorization': `Token ${token}` } },
-                    { name: 'Direct token', headers: { 'Authorization': token } },
-                    { name: 'X-Auth-Token', headers: { 'X-Auth-Token': token } },
-                  ];
-                  
-                  let successFound = false;
-                  
-                  // Test main endpoint with different token formats first
-                  for (const format of tokenFormats) {
-                    if (successFound) break;
-                    
-                    console.log(`🧪 Testing endpoint 'all-users' with ${format.name}:`);
-                    console.log('Headers:', format.headers);
-                    
-                    try {
-                      const response = await fetch('https://kingdom-equippers-rpl.vercel.app/all-users', {
-                        method: 'GET',
-                        headers: {
-                          ...format.headers,
-                          'Content-Type': 'application/json'
-                        }
-                      });
-                      
-                      console.log(`all-users + ${format.name} - Status:`, response.status);
-                      
-                      if (response.ok) {
-                        const data = await response.json();
-                        console.log(`✅ SUCCESS: all-users + ${format.name}`, data);
-                        alert(`✅ Found working combination!\nEndpoint: all-users\nAuth: ${format.name}\nStatus: ${response.status}\nUsers: ${data.users?.length || 'N/A'}`);
-                        successFound = true;
-                        break;
-                      } else {
-                        const errorText = await response.text();
-                        console.log(`❌ all-users + ${format.name} - Error (${response.status}):`, errorText);
-                      }
-                    } catch (err) {
-                      console.log(`💥 all-users + ${format.name} - Exception:`, err);
-                    }
-                  }
-                  
-                  // If no success, try different endpoints with Bearer format
-                  if (!successFound) {
-                    console.log('🔄 Trying different endpoints...');
-                    
-                    for (const endpoint of endpointsToTest) {
-                      if (successFound) break;
-                      
-                      console.log(`🧪 Testing endpoint: ${endpoint}`);
-                      
-                      try {
-                        const response = await fetch(`https://kingdom-equippers-rpl.vercel.app/${endpoint}`, {
-                          method: 'GET',
-                          headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                          }
-                        });
-                        
-                        console.log(`${endpoint} - Status:`, response.status);
-                        
-                        if (response.ok) {
-                          const data = await response.json();
-                          console.log(`✅ SUCCESS: ${endpoint}`, data);
-                          alert(`✅ Found working endpoint!\nEndpoint: ${endpoint}\nStatus: ${response.status}\nData: ${JSON.stringify(data).substring(0, 100)}...`);
-                          successFound = true;
-                          break;
-                        } else {
-                          const errorText = await response.text();
-                          console.log(`❌ ${endpoint} - Error (${response.status}):`, errorText);
-                        }
-                      } catch (err) {
-                        console.log(`💥 ${endpoint} - Exception:`, err);
-                      }
-                    }
-                  }
-                  
-                  if (!successFound) {
-                    alert('❌ No working combination found. Check console for details.');
-                  }
-                } catch (error) {
-                  console.error('Test error:', error);
-                }
-              }}
-              className="btn-refresh"
-              style={{ marginLeft: '10px' }}
-            >
-              🧪 Debug API
-            </button>
-          </div>
+          <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
         </div>
-      </div>
-
-      {/* Notification */}
-      {notification && (
-        <div className={`notification ${notification.type}`}>
-          <span className="notification-message">{notification.message}</span>
-          <button 
-            onClick={() => setNotification(null)} 
-            className="notification-close"
-          >
-            ×
+        <div className="admin-actions">
+          <span className="admin-email">{user.email}</span>
+          <button onClick={() => setShowLogoutConfirm(true)} className="btn btn-logout">
+            Logout
           </button>
         </div>
-      )}
+      </header>
 
-      {/* Main Content */}
-      <main className="admin-main">
-        <div className="content-header">
-          <h2>👥 User Management</h2>
-          <p>Manage all registered users in the RPL system</p>
-        </div>
+      <div className="admin-tabs">
+        <button 
+          className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
+          onClick={() => setActiveTab('users')}
+        >
+          Users
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'payments' ? 'active' : ''}`}
+          onClick={() => setActiveTab('payments')}
+        >
+          <FiDollarSign /> Payments
+        </button>
+      </div>
 
-        {/* Stats Cards */}
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-icon">👥</div>
-            <div className="stat-content">
-              <h3>{users.length}</h3>
-              <p>Total Users</p>
-            </div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-icon">✅</div>
-            <div className="stat-content">
-              <h3>{users.filter(u => u.is_email_verified).length}</h3>
-              <p>Verified Users</p>
-            </div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-icon">⏳</div>
-            <div className="stat-content">
-              <h3>{users.filter(u => !u.is_email_verified).length}</h3>
-              <p>Pending Verification</p>
-            </div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-icon">👨‍🏫</div>
-            <div className="stat-content">
-              <h3>{users.filter(u => u.userType === 'mentor').length}</h3>
-              <p>Mentors</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Users Table */}
-        <div className="users-section">
-          <div className="section-header">
-            <h3>📋 Users List</h3>
-            <span className="user-count">{users.length} users found</span>
-          </div>
-          
-          {loading ? (
-            <div className="loading-state">
-              <div className="spinner"></div>
-              <p>Loading users...</p>
-            </div>
-          ) : users.length === 0 ? (
-            <div className="empty-state">
-              <span className="empty-icon">📭</span>
-              <h4>No users found</h4>
-              <p>Click refresh to load users or check your connection.</p>
-            </div>
+      <main className="admin-content">
+        {activeTab === 'users' ? (
+          loading ? (
+            <div className="loading-spinner">Loading users...</div>
           ) : (
-            <div className="users-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>County</th>
-                    <th>Phone</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map(user => (
-                    <tr key={user.id}>
-                      <td>{user.id}</td>
-                      <td className="user-name">{user.username}</td>
-                      <td className="user-email">{user.email}</td>
-                      <td>
-                        <span className={`user-type ${user.userType}`}>
-                          {user.userType}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`status ${user.is_email_verified ? 'verified' : 'pending'}`}>
-                          {user.is_email_verified ? '✅ Verified' : '⏳ Pending'}
-                        </span>
-                      </td>
-                      <td>{user.county || 'N/A'}</td>
-                      <td>{user.phone_no || 'N/A'}</td>
-                      <td>
-                        <button 
-                          onClick={() => fetchUserDetails(user.id)}
-                          className="btn-secondary"
-                          style={{marginRight: '5px', padding: '4px 8px', fontSize: '0.8rem'}}
-                        >
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="users-grid">
+              {users.map((user) => (
+                <div key={user.id} className="user-card">
+                  <h3>{user.username}</h3>
+                  <p>{user.email}</p>
+                  <p>Status: {user.is_verified ? 'Verified' : 'Pending'}</p>
+                  <p>Role: {user.user_type}</p>
+                  <p>Payment: {user.has_paid ? '✅ Paid' : '❌ Pending'}</p>
+                  <button 
+                    onClick={() => handleViewUser(user.id)}
+                    className="btn btn-view"
+                  >
+                    View Details
+                  </button>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          )
+        ) : (
+          <div className="payments-section">
+            <div className="payment-stats">
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <span className="material-icons">account_balance_wallet</span>
+                </div>
+                <div className="stat-details">
+                  <h3>Total Revenue</h3>
+                  <p>KES {payments
+                    .filter(p => p.status === 'completed' || p.status === 'success')
+                    .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
+                    .toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <span className="material-icons">payment</span>
+                </div>
+                <div className="stat-details">
+                  <h3>Total Payments</h3>
+                  <p>{payments.length}</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <span className="material-icons">hourglass_empty</span>
+                </div>
+                <div className="stat-details">
+                  <h3>Pending</h3>
+                  <p>{payments.filter(p => p.status === 'pending').length}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="recent-payments">
+              <h2>Recent Payments</h2>
+              {payments.length > 0 ? (
+                <div className="payment-list">
+                  {payments.slice(0, 5).map((payment) => (
+                    <div key={payment.transaction_id} className="payment-item">
+                      <div className="payment-icon">
+                        <span className="material-icons">
+                          {payment.status === 'completed' || payment.status === 'success' ? 'verified' : 'hourglass_empty'}
+                        </span>
+                      </div>
+                      <div className="payment-details">
+                        <div className="payment-title">
+                          {payment.description || 'Payment'} - {payment.user_name || 'User'}
+                        </div>
+                        <div className="payment-amount">
+                          KES {parseFloat(payment.amount || 0).toLocaleString()}
+                        </div>
+                        <div className="payment-meta">
+                          {payment.status === 'completed' || payment.status === 'success' ? 'Processed' : 'Initiated'} • {formatTimeAgo(payment.created_at)}
+                        </div>
+                      </div>
+                      <div className={`payment-status ${payment.status}`}>
+                        {payment.status === 'completed' || payment.status === 'success' ? '✓' : '...'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>No recent payments found.</p>
+              )}
+            </div>
+
+            <h2>Payment History</h2>
+            {paymentLoading ? (
+              <div className="loading-spinner">Loading payments...</div>
+            ) : payments.length === 0 ? (
+              <p>No payment records found.</p>
+            ) : (
+              <div className="payments-table-container">
+                <table className="payments-table">
+                  <thead>
+                    <tr>
+                      <th>Transaction ID</th>
+                      <th>Checkout Request ID</th>
+                      <th>User</th>
+                      <th>Phone</th>
+                      <th>Amount (KES)</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map((payment) => (
+                      <tr key={payment.transaction_id}>
+                        <td>{payment.transaction_id || 'N/A'}</td>
+                        <td className="break-word">{payment.checkout_request_id || 'N/A'}</td>
+                        <td>{payment.user_name || payment.user_email || 'N/A'}</td>
+                        <td>{payment.phone || 'N/A'}</td>
+                        <td>{payment.amount ? payment.amount.toLocaleString() : '0.00'}</td>
+                        <td>{payment.created_at ? new Date(payment.created_at).toLocaleString() : 'N/A'}</td>
+                        <td>
+                          <span className={`status-badge ${payment.status || 'pending'}`}>
+                            {payment.status || 'Pending'}
+                          </span>
+                        </td>
+                        <td className="actions-cell">
+                          {payment.status === 'success' || payment.status === 'completed' ? (
+                            <button 
+                              onClick={() => downloadReceipt(payment.transaction_id)}
+                              className="btn btn-sm btn-download"
+                              title="Download Receipt"
+                            >
+                              <FiDownload />
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => handleRefreshStatus(payment.checkout_request_id)}
+                              className="btn btn-sm btn-refresh"
+                              title="Refresh Status"
+                              disabled={paymentLoading}
+                            >
+                              {paymentLoading ? '...' : '🔄'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* User Details Modal */}

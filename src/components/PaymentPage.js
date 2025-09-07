@@ -6,7 +6,7 @@ import { authAPI } from '../services/api'; // Ensure this import is correct
 
 const PaymentPage = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,6 +17,13 @@ const PaymentPage = () => {
   const [statusChecking, setStatusChecking] = useState(false);
 
   const REGISTRATION_FEE = 1; // 1 shilling
+
+  // Redirect if user has already paid
+  useEffect(() => {
+    if (user?.has_paid) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handlePhoneChange = (e) => {
     const input = e.target.value.replace(/\D/g, '').slice(0, 9);
@@ -38,8 +45,26 @@ const PaymentPage = () => {
       if (data.status === 'success') {
         setPaymentStatus('completed');
         setSuccess(`🎉 Payment Successful! Receipt: ${data.receipt || 'N/A'}`);
+        
+        // Update user's payment status in local storage and context
         localStorage.setItem('payment_completed', 'true');
         localStorage.setItem('payment_receipt', data.receipt || '');
+        
+        // Update user context
+        updateUser({ ...user, has_paid: true });
+
+        // Update payment status on the server
+        try {
+          await authAPI.updatePaymentStatus({
+            user_id: user.id,
+            transaction_id: data.transaction_id,
+            receipt_number: data.receipt,
+            amount: data.amount || REGISTRATION_FEE
+          });
+        } catch (err) {
+          console.error('Failed to update payment status:', err);
+          // Continue even if this fails, as the payment was successful
+        }
 
         setTimeout(() => navigate('/dashboard'), 3000);
         return true;

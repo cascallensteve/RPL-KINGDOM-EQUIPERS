@@ -58,6 +58,23 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
   return children;
 };
 
+// Payment Route Component that redirects if payment is already completed
+const ProtectedPaymentRoute = ({ children }) => {
+  const { user } = useAuth();
+  const paymentCompleted = localStorage.getItem('payment_completed') === 'true' || user?.has_paid;
+
+  if (paymentCompleted) {
+    console.log('Payment already completed, redirecting to dashboard');
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return (
+    <ProtectedRoute>
+      {children}
+    </ProtectedRoute>
+  );
+};
+
 function App() {
   return (
     <Router>
@@ -71,7 +88,14 @@ function App() {
             <Route path="/verify-email" element={<EmailVerificationPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/payment" element={<PaymentPage />} />
+            <Route 
+              path="/payment" 
+              element={
+                <ProtectedPaymentRoute>
+                  <PaymentPage />
+                </ProtectedPaymentRoute>
+              } 
+            />
             
             {/* Protected Routes */}
             <Route

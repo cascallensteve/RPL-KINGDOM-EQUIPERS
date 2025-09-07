@@ -1,12 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Users, Award, BookOpen, Heart, Phone, Mail, MapPin } from 'lucide-react';
-// 👇 Import useNavigate from react-router-dom
+import React, { useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Users, Award, BookOpen, Heart, Phone, Mail, MapPin, Menu, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import './LandingPage.css';
 
 const LandingPage = () => {
-  // 👇 Define navigate using the hook inside the component
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
 
   const slides = [
     {
@@ -51,20 +70,86 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">KE</span>
+              <div className="h-32 w-auto">
+                <img 
+                  src="/IMAGES/LOGO.png" 
+                  alt="Kingdom Equippers Logo" 
+                  className="h-full w-auto object-contain"
+                />
               </div>
-              <div>
+              <div className="hidden sm:block">
                 <h1 className="text-2xl font-bold text-gray-900">Kingdom Equippers</h1>
                 <p className="text-sm text-gray-600">Empowering Ministry Excellence</p>
               </div>
             </div>
+            
+            {/* Desktop Navigation */}
             <div className="hidden md:flex space-x-8">
               <a href="#programs" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">Programs</a>
               <a href="#mission" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">Mission</a>
               <a href="#testimonials" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">Testimonials</a>
               <a href="#contact" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">Contact</a>
             </div>
+            
+            {/* Mobile menu button */}
+            <div className="md:hidden flex items-center">
+              <button
+                onClick={toggleMenu}
+                className="text-gray-700 hover:text-blue-600 focus:outline-none"
+                aria-label="Toggle menu"
+              >
+                {isMenuOpen ? (
+                  <X className="h-8 w-8" />
+                ) : (
+                  <Menu className="h-8 w-8" />
+                )}
+              </button>
+            </div>
+          </div>
+          
+          {/* Mobile menu */}
+          <div 
+            ref={menuRef}
+            className={`md:hidden ${isMenuOpen ? 'block' : 'hidden'} bg-white shadow-lg rounded-lg mt-2 py-2`}
+          >
+            <a 
+              href="#programs" 
+              className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Programs
+            </a>
+            <a 
+              href="#mission" 
+              className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Mission
+            </a>
+            <a 
+              href="#testimonials" 
+              className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Testimonials
+            </a>
+            <a 
+              href="#contact" 
+              className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Contact
+            </a>
+            <div className="border-t border-gray-100 my-2"></div>
+            <button
+              onClick={() => {
+                navigate('/login');
+                setIsMenuOpen(false);
+              }}
+              className="w-full text-left px-4 py-3 text-blue-600 hover:bg-blue-50 transition-colors font-medium"
+            >
+              Login
+            </button>
           </div>
         </div>
       </nav>
@@ -394,13 +479,17 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-3 gap-8">
             <div>
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold">KE</span>
+              <div className="flex items-start space-x-4 mb-6">
+                <div className="h-16 w-auto">
+                  <img 
+                    src="/IMAGES/LOGO.png" 
+                    alt="Kingdom Equippers Logo" 
+                    className="h-full w-auto object-contain"
+                  />
                 </div>
-                <div>
-                  <h3 className="text-2xl font-bold">Kingdom Equippers</h3>
-                  <p className="text-gray-400 text-sm">Empowering Professionals Through Recognition</p>
+                <div className="pt-1">
+                  <h3 className="text-2xl font-bold text-white">Kingdom Equippers</h3>
+                  <p className="text-gray-300 text-sm mt-1">Empowering Ministry Through Recognition</p>
                 </div>
               </div>
               <p className="text-gray-400 leading-relaxed">

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { authAPI } from '../services/api';
 
 // Import icons
 import { 
@@ -22,14 +23,44 @@ const Dashboard = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
-    // Check if payment was completed or deferred
-    const paymentCompleted = localStorage.getItem('payment_completed');
+    const checkPaymentStatus = async () => {
+      try {
+        // Check local storage first for quick access
+        const paymentCompleted = localStorage.getItem('payment_completed') === 'true';
+        const paymentDeferred = localStorage.getItem('payment_deferred') === 'true';
+        
+        if (paymentCompleted) {
+          setPaymentStatus('completed');
+          return;
+        }
+        
+        if (paymentDeferred) {
+          setPaymentStatus('deferred');
+          return;
+        }
+        
+        // If no local storage info, check with the server
+        if (user?.id) {
+          const response = await authAPI.getUserPaymentStatus(user.id);
+          if (response?.has_paid) {
+            setPaymentStatus('completed');
+            localStorage.setItem('payment_completed', 'true');
+            updateUser({ ...user, has_paid: true });
+            return;
+          }
+        }
+        
+        // If we get here, payment is required
+        navigate('/payment');
+        
+      } catch (error) {
+        console.error('Error checking payment status:', error);
+        // If there's an error, still allow access but show payment reminder
+        setPaymentStatus('pending');
+      }
+    };
     
-    if (paymentCompleted === 'true') {
-      setPaymentStatus('completed');
-    } else if (localStorage.getItem('payment_deferred') === 'true') {
-      setPaymentStatus('deferred');
-    }
+    checkPaymentStatus();
 
     // Initialize profile data with only registration fields
     if (user) {
@@ -114,6 +145,29 @@ const Dashboard = () => {
       </div>
     );
   }
+
+  const renderPaymentReminder = () => {
+    if (paymentStatus === 'completed' || user?.has_paid) return null;
+    
+    return (
+      <div className="payment-reminder">
+        <div className="reminder-content">
+          <FiCreditCard className="reminder-icon" />
+          <div className="reminder-text">
+            <h3>Complete Your Registration</h3>
+            <p>Pay the registration fee to unlock all features.</p>
+          </div>
+          <button 
+            onClick={handleCompletePayment} 
+            className="btn btn-primary"
+            disabled={paymentStatus === 'processing'}
+          >
+            {paymentStatus === 'processing' ? 'Processing...' : 'Pay Now'}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -216,25 +270,7 @@ const Dashboard = () => {
         </div>
 
         {/* Payment Section */}
-        {paymentStatus !== 'completed' && (
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-sm p-6 mb-8 text-white">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <FiCreditCard className="h-10 w-10 text-white" />
-              </div>
-              <div className="ml-4 flex-1">
-                <h3 className="text-lg font-semibold mb-1">Complete Your Registration</h3>
-                <p className="opacity-90">To access all features, please complete your payment of KES 200.</p>
-              </div>
-              <button 
-                onClick={handleCompletePayment}
-                className="ml-4 bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Complete Payment
-              </button>
-            </div>
-          </div>
-        )}
+        {renderPaymentReminder()}
 
         {/* Dashboard Features */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">

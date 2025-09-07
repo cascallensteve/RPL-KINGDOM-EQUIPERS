@@ -182,6 +182,28 @@ export const authAPI = {
       throw error.response?.data || error.message;
     }
   },
+
+  // Update payment status
+  updatePaymentStatus: async (paymentData) => {
+    try {
+      const response = await api.post('/payments/update-status', paymentData);
+      return response.data;
+    } catch (error) {
+      console.error('Payment status update error:', error);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get user payment status
+  getUserPaymentStatus: async (userId) => {
+    try {
+      const response = await api.get(`/payments/user/${userId}/status`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting user payment status:', error);
+      throw error.response?.data || error.message;
+    }
+  },
 };
 
 // ================== ADMIN API ==================

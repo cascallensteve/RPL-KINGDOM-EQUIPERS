@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { ArrowLeft } from 'lucide-react';
 
 const SignUpPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
+  
+  // Get the previous path or default to home
+  const from = location.state?.from?.pathname || '/';
   
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
@@ -95,7 +100,7 @@ const SignUpPage = () => {
     } else {
       setFilteredSubcounties([]);
     }
-  }, [formData.county]);
+  }, [formData.county, countiesWithSubcounties]);
 
   // Calculate password strength when password changes
   useEffect(() => {
@@ -564,11 +569,28 @@ const SignUpPage = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/80 to-purple-600/80"></div>
       </div>
       
+      {/* Back Button */}
+      <button
+        onClick={() => navigate(from)}
+        className="absolute top-6 left-6 z-20 flex items-center text-white hover:text-yellow-300 transition-colors group"
+        aria-label="Go back"
+      >
+        <ArrowLeft className="h-6 w-6 mr-1 group-hover:-translate-x-1 transition-transform" />
+        <span className="font-medium">Back</span>
+      </button>
+      
       {/* Content */}
       <div className="relative z-10 w-full max-w-2xl">
         {/* Logo Section */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-white mb-2">RPL System</h1>
+          <div className="flex justify-center mb-8">
+            <img 
+              src="/IMAGES/LOGO.png" 
+              alt="Kingdom Equippers Logo" 
+              className="h-40 w-auto object-contain"
+            />
+          </div>
+          <h1 className="text-4xl font-extrabold text-white mb-2">Kingdom Equippers</h1>
           <p className="text-blue-100 text-lg">Create your account</p>
         </div>
 

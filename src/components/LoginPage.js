@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
+import { ArrowLeft } from 'lucide-react';
 
 const backgroundImageUrl = 'https://res.cloudinary.com/dqvsjtkqw/image/upload/v1757231830/group-four-gorgeous-african-american-womans-wear-summer-hat-holding-hands-praying-green-grass-park_zjrnze.webp'; // Replace with your preferred image URL
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, user } = useAuth();
+  
+  // Get the previous path or default to home
+  const from = location.state?.from?.pathname || '/';
   
   const [formData, setFormData] = useState({
     email: '',
@@ -104,8 +109,25 @@ const LoginPage = () => {
       <div className="absolute inset-0 bg-gradient-to-br from-purple-300 to-green-300 opacity-90"></div>
 
       <div className="relative w-full max-w-md z-10">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate(from)}
+          className="absolute -top-16 left-0 flex items-center text-white hover:text-yellow-300 transition-colors group"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="h-6 w-6 mr-1 group-hover:-translate-x-1 transition-transform" />
+          <span className="font-medium">Back</span>
+        </button>
+        
         {/* Logo & Greeting Section */}
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-8">
+            <img 
+              src="/IMAGES/LOGO.png" 
+              alt="Kingdom Equippers Logo" 
+              className="h-40 w-auto object-contain"
+            />
+          </div>
           <h1 className="text-4xl font-extrabold text-white mb-2 animate-fadeIn">
             {getGreeting()}, <span className="underline decoration-yellow-400 decoration-4">welcome back</span>!
           </h1>
@@ -190,9 +212,21 @@ const LoginPage = () => {
               disabled={loading}
             >
               {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Signing In...
+                <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+                  <div className="max-w-md w-full space-y-8 relative">
+                    <button
+                      onClick={() => navigate(from)}
+                      className="absolute -top-10 left-0 flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+                      aria-label="Go back"
+                    >
+                      <ArrowLeft className="h-5 w-5 mr-1" />
+                      <span>Back</span>
+                    </button>
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      Signing In...
+                    </div>
+                  </div>
                 </div>
               ) : (
                 'Sign In'
