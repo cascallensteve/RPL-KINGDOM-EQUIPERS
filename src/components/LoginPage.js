@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
-import './AuthPages.css';
+
+const backgroundImageUrl = 'https://res.cloudinary.com/dqvsjtkqw/image/upload/v1757231830/group-four-gorgeous-african-american-womans-wear-summer-hat-holding-hands-praying-green-grass-park_zjrnze.webp'; // Replace with your preferred image URL
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -18,11 +19,17 @@ const LoginPage = () => {
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Check if user is already logged in and redirect them
+  // Function to get dynamic greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Good Morning';
+    if (hour >= 12 && hour < 17) return 'Good Afternoon';
+    if (hour >= 17 && hour < 21) return 'Good Evening';
+    return 'Good Night';
+  };
+
   useEffect(() => {
     if (user) {
-      console.log('User already logged in, redirecting:', user);
-      // Let ProtectedRoute handle the redirect instead of doing it here
       if (user.userType === 'admin') {
         navigate('/admin-dashboard', { replace: true });
       } else {
@@ -52,33 +59,19 @@ const LoginPage = () => {
     setSuccess('');
 
     try {
-      // API login for all users (including admin)
       const response = await authAPI.login(formData);
       
       if (response.token && response.user) {
-        console.log('🔐 API Login Response:', response);
-        console.log('🔐 User Type:', response.user.userType);
-        console.log('🔐 Token:', response.token ? 'Token received' : 'No token');
-        console.log('🔐 Token length:', response.token?.length || 0);
-        console.log('🔐 Token preview:', response.token?.substring(0, 20) + '...');
-        
-        // Store token immediately to verify it's saved
         localStorage.setItem('rpl_token', response.token);
         localStorage.setItem('rpl_user', JSON.stringify(response.user));
-        
-        console.log('🔐 Stored token in localStorage:', localStorage.getItem('rpl_token') ? 'Success' : 'Failed');
-        console.log('🔐 Stored user in localStorage:', localStorage.getItem('rpl_user') ? 'Success' : 'Failed');
         
         login(response.token, response.user);
         setSuccess('Login successful! Redirecting...');
 
-        // Use React Router navigation
         if (response.user.userType === 'admin') {
           navigate('/admin-dashboard', { replace: true });
         } else {
-          // Automatically redirect based on email verification
           if (!response.user.is_email_verified) {
-            // Store email for verification page to use when sending OTP
             try {
               if (response.user.email) {
                 localStorage.setItem('temp_user_email', response.user.email);
@@ -98,25 +91,54 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="page-container">
-      <div className="auth-container">
-        <div className="logo">
-          <h1>RPL System</h1>
-          <p>Welcome back</p>
+    <div 
+      className="min-h-screen relative flex items-center justify-center p-4"
+      style={{
+        backgroundImage: `url(${backgroundImageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-300 to-green-300 opacity-90"></div>
+
+      <div className="relative w-full max-w-md z-10">
+        {/* Logo & Greeting Section */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-extrabold text-white mb-2 animate-fadeIn">
+            {getGreeting()}, <span className="underline decoration-yellow-400 decoration-4">welcome back</span>!
+          </h1>
+          <p className="text-yellow-100 text-lg italic tracking-wide drop-shadow-lg">
+            We're glad to see you here.
+          </p>
         </div>
 
-        <div className="card">
-          {error && <div className="alert alert-error">{error}</div>}
-          {success && <div className="alert alert-success">{success}</div>}
+        {/* Main Card */}
+        <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/20">
+          {/* Error/Success Messages */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
+              {success}
+            </div>
+          )}
 
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="email" className="form-label">Email Address</label>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email Field */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
+                Email Address
+              </label>
               <input
                 type="email"
                 id="email"
                 name="email"
-                className="form-control"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
                 value={formData.email}
                 onChange={handleChange}
                 required
@@ -124,14 +146,17 @@ const LoginPage = () => {
               />
             </div>
 
-            <div className="form-group">
-              <label htmlFor="password" className="form-label">Password</label>
-              <div className="password-input-group">
+            {/* Password Field */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                Password
+              </label>
+              <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   id="password"
                   name="password"
-                  className="form-control"
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
                   value={formData.password}
                   onChange={handleChange}
                   required
@@ -139,7 +164,7 @@ const LoginPage = () => {
                 />
                 <button
                   type="button"
-                  className="password-toggle"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors duration-200"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label="Toggle password visibility"
                 >
@@ -148,73 +173,85 @@ const LoginPage = () => {
               </div>
             </div>
 
-            <div className="forgot-password">
-              <Link to="/forgot-password">Forgot your password?</Link>
+            {/* Forgot Password Link */}
+            <div className="text-right">
+              <Link 
+                to="/forgot-password" 
+                className="text-green-600 hover:text-green-700 text-sm font-medium transition-colors duration-200"
+              >
+                Forgot your password?
+              </Link>
             </div>
 
+            {/* Submit Button */}
             <button 
               type="submit" 
-              className="btn-primary w-100"
+              className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3 px-6 rounded-lg hover:from-green-600 hover:to-green-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               disabled={loading}
             >
-              {loading ? <span className="loading"></span> : 'Sign In'}
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Signing In...
+                </div>
+              ) : (
+                'Sign In'
+              )}
             </button>
           </form>
 
-          <div className="link-text">
-            Don't have an account? <Link to="/signup">Create one here</Link>
+          {/* Sign Up Link */}
+          <div className="text-center mt-6">
+            <p className="text-gray-600">
+              Don't have an account?{' '}
+              <Link 
+                to="/signup" 
+                className="text-green-600 hover:text-green-700 font-semibold transition-colors duration-200"
+              >
+                Create one here
+              </Link>
+            </p>
           </div>
           
-          <div className="admin-link">
-            <Link to="/admin-signup" style={{ color: '#dc2626', fontWeight: '600' }}>
+          {/* Admin Link */}
+          <div className="text-center mt-4">
+            <Link 
+              to="/admin-signup" 
+              className="text-red-600 hover:text-red-700 font-semibold text-sm transition-colors duration-200"
+            >
               🛡️ Admin Registration
             </Link>
           </div>
 
           {/* Debug Section */}
-          <div style={{ marginTop: '20px', textAlign: 'center' }}>
-            <button 
-              type="button" 
-              onClick={() => {
-                console.log('=== AUTH DEBUG INFO ===');
-                console.log('localStorage rpl_token:', localStorage.getItem('rpl_token'));
-                console.log('localStorage rpl_user:', localStorage.getItem('rpl_user'));
-                console.log('Current pathname:', window.location.pathname);
-                console.log('======================');
-              }}
-              style={{ 
-                background: '#007bff', 
-                color: 'white',
-                border: 'none', 
-                padding: '8px 16px', 
-                borderRadius: '5px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                marginRight: '10px'
-              }}
-            >
-              Debug Auth State
-            </button>
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <button 
+                type="button" 
+                onClick={() => {
+                  console.log('=== AUTH DEBUG INFO ===');
+                  console.log('localStorage rpl_token:', localStorage.getItem('rpl_token'));
+                  console.log('localStorage rpl_user:', localStorage.getItem('rpl_user'));
+                  console.log('Current pathname:', window.location.pathname);
+                  console.log('======================');
+                }}
+                className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200"
+              >
+                Debug Auth State
+              </button>
 
-            <button 
-              type="button" 
-              onClick={() => {
-                localStorage.clear();
-                console.log('Cleared localStorage');
-                window.location.reload();
-              }}
-              style={{ 
-                background: '#dc3545', 
-                color: 'white',
-                border: 'none', 
-                padding: '8px 16px', 
-                borderRadius: '5px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              Clear & Reload
-            </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  localStorage.clear();
+                  console.log('Cleared localStorage');
+                  window.location.reload();
+                }}
+                className="bg-red-500 hover:bg-red-600 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200"
+              >
+                Clear & Reload
+              </button>
+            </div>
           </div>
         </div>
       </div>

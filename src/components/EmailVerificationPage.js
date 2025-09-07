@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
-import './AuthPages.css';
 
 const EmailVerificationPage = () => {
   const navigate = useNavigate();
@@ -130,71 +129,121 @@ const EmailVerificationPage = () => {
   };
 
   if (!email) {
-    return <div className="page-container">Loading...</div>;
+    return (
+      <div className="min-h-screen relative flex items-center justify-center p-4">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" 
+             style={{
+               backgroundImage: "url('https://res.cloudinary.com/dqvsjtkqw/image/upload/v1757230094/top-view-patients-standing-circle-holding-hands_xy4dcg.webp')"
+             }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/80 to-blue-600/80"></div>
+        </div>
+        <div className="relative z-10 text-white text-xl">Loading...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="page-container">
-      <div className="auth-container">
-        <div className="logo">
-          <h1>RPL System</h1>
-          <p>Verify your email</p>
+    <div className="min-h-screen relative flex items-center justify-center p-4">
+      {/* Background Image with Overlay */}
+      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" 
+           style={{
+             backgroundImage: "url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1920&q=80')"
+           }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/80 to-blue-600/80"></div>
+      </div>
+      
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-md">
+        {/* Logo Section */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-extrabold text-white mb-2">RPL System</h1>
+          <p className="text-blue-100 text-lg">Verify your email</p>
         </div>
 
-        <div className="card">
-          {error && <div className="alert alert-error">{error}</div>}
-          {success && <div className="alert alert-success">{success}</div>}
+        {/* Main Card */}
+        <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/20">
+          {/* Error/Success Messages */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
+              {success}
+            </div>
+          )}
 
-          <div className="verification-info">
-            <p className="text-center mb-4">
-              We've sent a verification code to <strong>{email}</strong>
+          {/* Verification Info */}
+          <div className="text-center mb-8">
+            <p className="text-gray-700 mb-4">
+              We've sent a verification code to <strong className="text-blue-600">{email}</strong>
             </p>
-            <p className="text-center mb-4 text-muted">
+            <p className="text-gray-600 text-sm">
               Please check your email and enter the 6-digit code below
             </p>
           </div>
 
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="otp" className="form-label">Verification Code</label>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* OTP Input */}
+            <div>
+              <label htmlFor="otp" className="block text-sm font-semibold text-gray-700 mb-2">
+                Verification Code
+              </label>
               <input
                 type="text"
                 id="otp"
                 name="otp"
-                className="form-control text-center"
+                className="w-full px-4 py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-center text-2xl tracking-widest"
                 value={otp}
                 onChange={handleChange}
                 required
-                placeholder="Enter 6-digit code"
+                placeholder="000000"
                 maxLength="6"
                 pattern="[0-9]{6}"
-                style={{ fontSize: '24px', letterSpacing: '8px' }}
               />
             </div>
 
+            {/* Verify Button */}
             <button 
               type="submit" 
-              className="btn-primary w-100"
+              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:from-blue-600 hover:to-blue-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               disabled={loading || otp.length !== 6}
             >
-              {loading ? <span className="loading"></span> : 'Verify Email'}
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Verifying...
+                </div>
+              ) : (
+                'Verify Email'
+              )}
             </button>
           </form>
 
-          <div className="verification-actions">
+          {/* Actions */}
+          <div className="mt-6 space-y-4">
             <button 
               type="button" 
-              className="btn-secondary w-100"
+              className="w-full bg-transparent border-2 border-blue-500 text-blue-600 font-semibold py-3 px-6 rounded-lg hover:bg-blue-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleResendOTP}
               disabled={resendLoading}
             >
-              {resendLoading ? <span className="loading"></span> : 'Resend Code'}
+              {resendLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
+                  Sending...
+                </div>
+              ) : (
+                'Resend Code'
+              )}
             </button>
             
-            <div className="link-text">
+            <div className="text-center">
               <button 
                 type="button" 
-                className="btn-link"
+                className="text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200"
                 onClick={() => navigate('/login')}
               >
                 Back to Login

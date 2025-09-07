@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../services/api';
-import './AuthPages.css';
 
 const ForgotPasswordPage = () => {
   const navigate = useNavigate();
@@ -48,34 +47,58 @@ const ForgotPasswordPage = () => {
   };
 
   return (
-    <div className="page-container">
-      <div className="auth-container">
-        <div className="logo">
-          <h1>RPL System</h1>
-          <p>Forgot your password?</p>
+    <div className="min-h-screen relative flex items-center justify-center p-4">
+      {/* Background Image with Overlay */}
+      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" 
+           style={{
+             backgroundImage: "url('https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1920&q=80')"
+           }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/80 to-purple-600/80"></div>
+      </div>
+      
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-md">
+        {/* Logo Section */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-extrabold text-white mb-2">RPL System</h1>
+          <p className="text-purple-100 text-lg">Forgot your password?</p>
         </div>
 
-        <div className="card">
-          {error && <div className="alert alert-error">{error}</div>}
-          {success && <div className="alert alert-success">{success}</div>}
+        {/* Main Card */}
+        <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/20">
+          {/* Error/Success Messages */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
+              {success}
+            </div>
+          )}
 
-          <div className="forgot-info">
-            <p className="text-center mb-4">
+          {/* Info Section */}
+          <div className="text-center mb-8">
+            <p className="text-gray-700 mb-4">
               Enter your email address and we'll send you a password reset code.
             </p>
-            <p className="text-center mb-4 text-muted">
+            <p className="text-gray-600 text-sm">
               The reset code will be valid for 15 minutes.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="email" className="form-label">Email Address</label>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email Field */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
+                Email Address
+              </label>
               <input
                 type="email"
                 id="email"
                 name="email"
-                className="form-control"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                 value={email}
                 onChange={handleChange}
                 required
@@ -83,17 +106,34 @@ const ForgotPasswordPage = () => {
               />
             </div>
 
+            {/* Submit Button */}
             <button 
               type="submit" 
-              className="btn-primary w-100"
+              className="w-full bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:from-purple-600 hover:to-purple-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               disabled={loading}
             >
-              {loading ? <span className="loading"></span> : 'Send Reset Code'}
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Sending Reset Code...
+                </div>
+              ) : (
+                'Send Reset Code'
+              )}
             </button>
           </form>
 
-          <div className="link-text">
-            Remember your password? <Link to="/login">Sign in here</Link>
+          {/* Sign In Link */}
+          <div className="text-center mt-6">
+            <p className="text-gray-600">
+              Remember your password?{' '}
+              <Link 
+                to="/login" 
+                className="text-purple-600 hover:text-purple-700 font-semibold transition-colors duration-200"
+              >
+                Sign in here
+              </Link>
+            </p>
           </div>
         </div>
       </div>

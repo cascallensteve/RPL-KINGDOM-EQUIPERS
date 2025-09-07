@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../services/api';
-import './AuthPages.css';
 
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
@@ -89,55 +88,92 @@ const ResetPasswordPage = () => {
   };
 
   if (!email) {
-    return <div className="page-container">Loading...</div>;
+    return (
+      <div className="min-h-screen relative flex items-center justify-center p-4">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" 
+             style={{
+               backgroundImage: "url('https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1920&q=80')"
+             }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/80 to-indigo-600/80"></div>
+        </div>
+        <div className="relative z-10 text-white text-xl">Loading...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="page-container">
-      <div className="auth-container">
-        <div className="logo">
-          <h1>RPL System</h1>
-          <p>Reset your password</p>
+    <div className="min-h-screen relative flex items-center justify-center p-4">
+      {/* Background Image with Overlay */}
+      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" 
+           style={{
+             backgroundImage: "url('https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1920&q=80')"
+           }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/80 to-indigo-600/80"></div>
+      </div>
+      
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-md">
+        {/* Logo Section */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-extrabold text-white mb-2">RPL System</h1>
+          <p className="text-indigo-100 text-lg">Reset your password</p>
         </div>
 
-        <div className="card">
-          {error && <div className="alert alert-error">{error}</div>}
-          {success && <div className="alert alert-success">{success}</div>}
+        {/* Main Card */}
+        <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/20">
+          {/* Error/Success Messages */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
+              {success}
+            </div>
+          )}
 
-          <div className="reset-info">
-            <p className="text-center mb-4">
-              We've sent a reset code to <strong>{email}</strong>
+          {/* Reset Info */}
+          <div className="text-center mb-8">
+            <p className="text-gray-700 mb-4">
+              We've sent a reset code to <strong className="text-indigo-600">{email}</strong>
             </p>
-            <p className="text-center mb-4 text-muted">
+            <p className="text-gray-600 text-sm">
               Enter the code from your email and create a new password.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="token" className="form-label">Reset Code</label>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Reset Code Field */}
+            <div>
+              <label htmlFor="token" className="block text-sm font-semibold text-gray-700 mb-2">
+                Reset Code
+              </label>
               <input
                 type="text"
                 id="token"
                 name="token"
-                className="form-control text-center"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 text-center text-lg tracking-widest"
                 value={formData.token}
                 onChange={handleChange}
                 required
-                placeholder="Enter reset code"
-                style={{ fontSize: '18px', letterSpacing: '4px' }}
+                placeholder="000000"
               />
-              <small className="form-help">Enter the 6-digit code sent to your email</small>
+              <small className="text-gray-500 text-sm mt-1 block">Enter the 6-digit code sent to your email</small>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="new_password" className="form-label">New Password</label>
-              <div className="password-input-group">
+            {/* New Password Field */}
+            <div>
+              <label htmlFor="new_password" className="block text-sm font-semibold text-gray-700 mb-2">
+                New Password
+              </label>
+              <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   id="new_password"
                   name="new_password"
-                  className="form-control"
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                   value={formData.new_password}
                   onChange={handleChange}
                   required
@@ -146,23 +182,26 @@ const ResetPasswordPage = () => {
                 />
                 <button
                   type="button"
-                  className="password-toggle"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors duration-200"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? "👁️" : "👁️‍🗨️"}
                 </button>
               </div>
-              <small className="form-help">Password must be at least 6 characters long</small>
+              <small className="text-gray-500 text-sm mt-1 block">Password must be at least 6 characters long</small>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="confirm_password" className="form-label">Confirm New Password</label>
-              <div className="password-input-group">
+            {/* Confirm Password Field */}
+            <div>
+              <label htmlFor="confirm_password" className="block text-sm font-semibold text-gray-700 mb-2">
+                Confirm New Password
+              </label>
+              <div className="relative">
                 <input
                   type={showConfirmPassword ? "text" : "password"}
                   id="confirm_password"
                   name="confirm_password"
-                  className="form-control"
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                   value={formData.confirm_password}
                   onChange={handleChange}
                   required
@@ -170,7 +209,7 @@ const ResetPasswordPage = () => {
                 />
                 <button
                   type="button"
-                  className="password-toggle"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors duration-200"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? "👁️" : "👁️‍🗨️"}
@@ -178,26 +217,43 @@ const ResetPasswordPage = () => {
               </div>
             </div>
 
+            {/* Submit Button */}
             <button 
               type="submit" 
-              className="btn-primary w-100"
+              className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:from-indigo-600 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               disabled={loading}
             >
-              {loading ? <span className="loading"></span> : 'Reset Password'}
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Resetting Password...
+                </div>
+              ) : (
+                'Reset Password'
+              )}
             </button>
           </form>
 
-          <div className="reset-actions">
+          {/* Actions */}
+          <div className="mt-6 space-y-4">
             <button 
               type="button" 
-              className="btn-secondary w-100"
+              className="w-full bg-transparent border-2 border-indigo-500 text-indigo-600 font-semibold py-3 px-6 rounded-lg hover:bg-indigo-50 transition-all duration-200"
               onClick={handleBackToForgotPassword}
             >
               Back to Forgot Password
             </button>
             
-            <div className="link-text">
-              Remember your password? <Link to="/login">Sign in here</Link>
+            <div className="text-center">
+              <p className="text-gray-600">
+                Remember your password?{' '}
+                <Link 
+                  to="/login" 
+                  className="text-indigo-600 hover:text-indigo-700 font-semibold transition-colors duration-200"
+                >
+                  Sign in here
+                </Link>
+              </p>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './PaymentPage.css';
+import { authAPI } from '../services/api'; // Ensure this import is correct
 
 const PaymentPage = () => {
   const navigate = useNavigate();
@@ -15,16 +16,14 @@ const PaymentPage = () => {
   const [checkoutRequestId, setCheckoutRequestId] = useState('');
   const [statusChecking, setStatusChecking] = useState(false);
 
-  const REGISTRATION_FEE = 1; // 1 shilling as requested
+  const REGISTRATION_FEE = 1; // 1 shilling
 
   const handlePhoneChange = (e) => {
-    // Force phone number to be numeric and max 9 digits (after +254)
     const input = e.target.value.replace(/\D/g, '').slice(0, 9);
     setPhone(input);
     setError('');
   };
 
-  // Check transaction status
   const checkTransactionStatus = async (requestId) => {
     try {
       setStatusChecking(true);
@@ -41,8 +40,7 @@ const PaymentPage = () => {
         setSuccess(`🎉 Payment Successful! Receipt: ${data.receipt || 'N/A'}`);
         localStorage.setItem('payment_completed', 'true');
         localStorage.setItem('payment_receipt', data.receipt || '');
-        
-        // Redirect to dashboard after 3 seconds
+
         setTimeout(() => navigate('/dashboard'), 3000);
         return true;
       } else if (data.status === 'failed') {
@@ -50,10 +48,9 @@ const PaymentPage = () => {
         setError('❌ Payment failed. Please try again.');
         return false;
       }
-      
-      // Still processing
+
       return null;
-      
+
     } catch (err) {
       console.error('Status check error:', err);
       setError('Failed to check payment status');
@@ -63,19 +60,14 @@ const PaymentPage = () => {
     }
   };
 
-  // Poll for transaction status
   useEffect(() => {
     if (!checkoutRequestId || paymentStatus !== 'processing') return;
 
     const statusInterval = setInterval(async () => {
       const result = await checkTransactionStatus(checkoutRequestId);
-      
-      if (result !== null) {
-        clearInterval(statusInterval);
-      }
-    }, 3000); // Check every 3 seconds
+      if (result !== null) clearInterval(statusInterval);
+    }, 3000);
 
-    // Stop checking after 2 minutes
     const timeout = setTimeout(() => {
       clearInterval(statusInterval);
       if (paymentStatus === 'processing') {
@@ -99,43 +91,32 @@ const PaymentPage = () => {
     }
 
     const fullPhone = `254${phone}`;
-
     setLoading(true);
     setError('');
     setSuccess('');
     setPaymentStatus('processing');
 
     try {
-      const response = await fetch('https://kingdom-equippers-rpl.vercel.app/payments/pay', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          phone: fullPhone,
-          amount: REGISTRATION_FEE
-        })
+      // ✅ Using Axios-based authAPI
+      const data = await authAPI.makePayment({
+        phone: fullPhone,
+        amount: REGISTRATION_FEE
       });
 
-      if (!response.ok) {
-        throw new Error('Payment request failed');
-      }
+      console.log('💰 Payment response:', data);
 
-      const data = await response.json();
+      if (data.response_code === "0" || data.success) {
+        const requestId = data.checkout_request_id || data.CheckoutRequestID;
+        if (!requestId) throw new Error("No CheckoutRequestID returned from API");
 
-      if (data.ResponseCode === "0" || data.success) {
-        const requestId = data.CheckoutRequestID || data.checkout_request_id;
         setCheckoutRequestId(requestId);
-        setSuccess('💳 Payment request sent! Please check your phone for M-Pesa prompt and enter your PIN.');
-        
-        // Start checking status immediately
-        setTimeout(() => {
-          checkTransactionStatus(requestId);
-        }, 5000);
-        
+        setSuccess('💳 Payment request sent! Check your phone for the M-Pesa prompt.');
+
+        setTimeout(() => checkTransactionStatus(requestId), 5000);
       } else {
-        throw new Error(data.ResponseDescription || data.message || 'Payment initiation failed');
+        throw new Error(data.message || 'Payment initiation failed');
       }
+
     } catch (err) {
       console.error('Payment error:', err);
       setError(err.message || 'Payment failed. Please check your connection and try again.');
@@ -181,7 +162,7 @@ const PaymentPage = () => {
           {success && <div className="alert alert-success">{success}</div>}
 
           <h2 className="payment-title">Complete Your Registration</h2>
-          <p className="payment-subtitle">Welcome! Please complete your registration by paying the required fee.</p>
+          <p className="payment-subtitle">Please pay the registration fee to continue.</p>
 
           <div className="payment-summary">
             <div className="summary-item">
@@ -210,7 +191,7 @@ const PaymentPage = () => {
                 required
               />
             </div>
-            <small className="form-help">Enter your number without the +254 (e.g. 712345678)</small>
+            <small className="form-help">Enter your number without the +254 prefix</small>
 
             <div className="payment-actions">
               <button 
@@ -231,7 +212,6 @@ const PaymentPage = () => {
             </div>
           </form>
 
-          {/* Enhanced Status Messages */}
           {paymentStatus === 'processing' && (
             <div className="payment-status processing">
               <div className="processing-indicator">
@@ -244,7 +224,7 @@ const PaymentPage = () => {
               </div>
             </div>
           )}
-          
+
           {paymentStatus === 'completed' && (
             <div className="payment-status success">
               <div className="success-animation">🎉</div>
@@ -255,7 +235,7 @@ const PaymentPage = () => {
               </div>
             </div>
           )}
-          
+
           {paymentStatus === 'failed' && (
             <div className="payment-status error">
               <div className="error-icon">❌</div>
@@ -265,7 +245,7 @@ const PaymentPage = () => {
               </div>
             </div>
           )}
-          
+
           {paymentStatus === 'deferred' && (
             <div className="payment-status info">
               <div className="info-icon">⏰</div>

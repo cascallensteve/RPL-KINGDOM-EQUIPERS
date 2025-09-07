@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
-import './AdminSignupPage.css';
 
 const AdminSignupPage = () => {
   const navigate = useNavigate();
@@ -87,25 +86,48 @@ const AdminSignupPage = () => {
   };
 
   return (
-    <div className="page-container">
-      <div className="auth-container">
-        <div className="logo">
-          <h1>RPL System</h1>
-          <p>Admin Registration</p>
+    <div className="min-h-screen relative flex items-center justify-center p-4">
+      {/* Background Image with Overlay */}
+      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" 
+           style={{
+             backgroundImage: "url('https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=1920&q=80')"
+           }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-red-500/80 to-red-600/80"></div>
+      </div>
+      
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-md">
+        {/* Logo Section */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-extrabold text-white mb-2">RPL System</h1>
+          <p className="text-red-100 text-lg">Admin Registration</p>
         </div>
 
-        <div className="card">
-          {error && <div className="alert alert-error">{error}</div>}
-          {success && <div className="alert alert-success">{success}</div>}
+        {/* Main Card */}
+        <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/20">
+          {/* Error/Success Messages */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
+              {success}
+            </div>
+          )}
 
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="username" className="form-label">Full Name</label>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Full Name Field */}
+            <div>
+              <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2">
+                Full Name
+              </label>
               <input
                 type="text"
                 id="username"
                 name="username"
-                className="form-control"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                 value={formData.username}
                 onChange={handleChange}
                 required
@@ -113,13 +135,16 @@ const AdminSignupPage = () => {
               />
             </div>
 
-            <div className="form-group">
-              <label htmlFor="email" className="form-label">Email Address</label>
+            {/* Email Field */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
+                Email Address
+              </label>
               <input
                 type="email"
                 id="email"
                 name="email"
-                className="form-control"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                 value={formData.email}
                 onChange={handleChange}
                 required
@@ -127,13 +152,16 @@ const AdminSignupPage = () => {
               />
             </div>
 
-            <div className="form-group">
-              <label htmlFor="password" className="form-label">Password</label>
+            {/* Password Field */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                Password
+              </label>
               <input
                 type="password"
                 id="password"
                 name="password"
-                className="form-control"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                 value={formData.password}
                 onChange={handleChange}
                 required
@@ -142,13 +170,16 @@ const AdminSignupPage = () => {
               />
             </div>
 
-            <div className="form-group">
-              <label htmlFor="confirmPassword" className="form-label">Confirm Password</label>
+            {/* Confirm Password Field */}
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+                Confirm Password
+              </label>
               <input
                 type="password"
                 id="confirmPassword"
                 name="confirmPassword"
-                className="form-control"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
@@ -157,23 +188,42 @@ const AdminSignupPage = () => {
               />
             </div>
 
+            {/* Submit Button */}
             <button 
               type="submit" 
-              className="btn-primary w-100"
+              className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white font-bold py-3 px-6 rounded-lg hover:from-red-600 hover:to-red-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               disabled={loading}
             >
-              {loading ? 'Creating Admin Account...' : 'Create Admin Account'}
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Creating Admin Account...
+                </div>
+              ) : (
+                'Create Admin Account'
+              )}
             </button>
           </form>
 
-          <div className="auth-links">
-            <p>
+          {/* Links */}
+          <div className="mt-6 space-y-2 text-center">
+            <p className="text-gray-600">
               Already have an admin account?{' '}
-              <Link to="/login">Sign In</Link>
+              <Link 
+                to="/login" 
+                className="text-red-600 hover:text-red-700 font-semibold transition-colors duration-200"
+              >
+                Sign In
+              </Link>
             </p>
-            <p>
+            <p className="text-gray-600">
               Need a regular account?{' '}
-              <Link to="/signup">Client Signup</Link>
+              <Link 
+                to="/signup" 
+                className="text-green-600 hover:text-green-700 font-semibold transition-colors duration-200"
+              >
+                Client Signup
+              </Link>
             </p>
           </div>
         </div>
