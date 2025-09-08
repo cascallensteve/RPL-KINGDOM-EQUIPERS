@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './PaymentPage.css';
@@ -31,7 +31,7 @@ const PaymentPage = () => {
     setError('');
   };
 
-  const checkTransactionStatus = async (requestId) => {
+  const checkTransactionStatus = useCallback(async (requestId) => {
     try {
       setStatusChecking(true);
       const response = await fetch(`https://kingdom-equippers-rpl.vercel.app/payments/transaction-status/${requestId}/`);
@@ -83,7 +83,7 @@ const PaymentPage = () => {
     } finally {
       setStatusChecking(false);
     }
-  };
+  }, [REGISTRATION_FEE, updateUser, user, navigate]);
 
   useEffect(() => {
     if (!checkoutRequestId || paymentStatus !== 'processing') return;
@@ -105,7 +105,7 @@ const PaymentPage = () => {
       clearInterval(statusInterval);
       clearTimeout(timeout);
     };
-  }, [checkoutRequestId, paymentStatus, navigate]);
+  }, [checkoutRequestId, paymentStatus, checkTransactionStatus]);
 
   const handlePayNow = async (e) => {
     e.preventDefault();

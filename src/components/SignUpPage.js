@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -47,7 +47,7 @@ const SignUpPage = () => {
   const [filteredSubcounties, setFilteredSubcounties] = useState([]);
 
   // All 47 Kenyan Counties with their subcounties
-  const countiesWithSubcounties = {
+  const countiesWithSubcounties = useMemo(() => ({
     'Mombasa': ['Changamwe', 'Jomvu', 'Kisauni', 'Likoni', 'Mvita', 'Nyali'],
     'Kwale': ['Kinango', 'Lungalunga', 'Matuga', 'Msambweni'],
     'Kilifi': ['Ganze', 'Kaloleni', 'Kilifi North', 'Kilifi South', 'Magarini', 'Malindi', 'Rabai'],
@@ -95,7 +95,7 @@ const SignUpPage = () => {
     'Kisii': ['Bobasi', 'Bomachoge Borabu', 'Bomachoge Chache', 'Bonchari', 'Kitutu Chache North', 'Kitutu Chache South', 'Nyaribari Chache', 'Nyaribari Masaba', 'South Mugirango'],
     'Nyamira': ['Borabu', 'Manga', 'Masaba North', 'Nyamira North', 'Nyamira South'],
     'Nairobi': ['Dagoretti North', 'Dagoretti South', 'Embakasi Central', 'Embakasi East', 'Embakasi North', 'Embakasi South', 'Embakasi West', 'Kamukunji', 'Kasarani', 'Kibra', 'Langata', 'Makadara', 'Mathare', 'Roysambu', 'Ruaraka', 'Starehe', 'Westlands']
-  };
+  }), []);
 
   const counties = Object.keys(countiesWithSubcounties);
   const totalSteps = 4;

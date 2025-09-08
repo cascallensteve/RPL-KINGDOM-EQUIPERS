@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Users, Award, BookOpen, Heart, Phone, Mail, MapPin, Menu, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import './LandingPage.css';
 
 const LandingPage = () => {
@@ -53,7 +53,7 @@ const LandingPage = () => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -518,10 +518,10 @@ const LandingPage = () => {
             <div>
               <h4 className="text-xl font-semibold mb-6">Quick Links</h4>
               <div className="space-y-3">
-                <a href="#" className="block text-gray-300 hover:text-white transition-colors">Apply for RPL</a>
-                <a href="#" className="block text-gray-300 hover:text-white transition-colors">Our Programs</a>
-                <a href="#" className="block text-gray-300 hover:text-white transition-colors">Resources</a>
-                <a href="#" className="block text-gray-300 hover:text-white transition-colors">Support Us</a>
+                <Link to="/signup" className="block text-gray-300 hover:text-white transition-colors">Apply for RPL</Link>
+                <a href="#programs" className="block text-gray-300 hover:text-white transition-colors">Our Programs</a>
+                <Link to="/resources" className="block text-gray-300 hover:text-white transition-colors">Resources</Link>
+                <Link to="/donate" className="block text-gray-300 hover:text-white transition-colors">Support Us</Link>
               </div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
@@ -75,7 +75,7 @@ const Dashboard = () => {
         subcounty: user.subcounty || ''
       });
     }
-  }, [user]);
+  }, [user, navigate, updateUser]);
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
