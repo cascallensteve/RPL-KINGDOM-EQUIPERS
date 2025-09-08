@@ -8,8 +8,9 @@ import {
   FiUser, FiLogOut, FiEdit, FiLock, FiHelpCircle, FiMail, 
   FiCheckCircle, FiXCircle, FiCreditCard, FiBook, FiBarChart2, 
   FiUsers, FiAward, FiSettings, FiX, FiSave, FiArrowLeft,
-  FiMapPin, FiPhone, FiCalendar, FiGlobe, FiChevronDown
+  FiMapPin, FiPhone, FiCalendar, FiGlobe, FiChevronDown, FiGift
 } from 'react-icons/fi';
+import ReferralCard from './ReferralCard';
 
 const Dashboard = () => {
   const { user, logout, updateUser } = useAuth();
@@ -241,7 +242,7 @@ const Dashboard = () => {
         </div>
 
         {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
               <FiUser className="h-6 w-6 text-blue-600" />
@@ -271,6 +272,35 @@ const Dashboard = () => {
 
         {/* Payment Section */}
         {renderPaymentReminder()}
+
+        {/* Referral Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="lg:col-span-2">
+            <ReferralCard />
+          </div>
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-sm p-6 border border-purple-100">
+            <div className="flex items-center mb-4">
+              <div className="p-2 bg-purple-100 rounded-lg mr-3">
+                <FiGift className="h-6 w-6 text-purple-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Referral Rewards</h3>
+            </div>
+            <ul className="space-y-3 text-sm text-gray-700">
+              <li className="flex items-start">
+                <span className="text-green-500 mr-2">✓</span>
+                <span>Get 1 month free for every 3 successful referrals</span>
+              </li>
+              <li className="flex items-start">
+                <span className="text-green-500 mr-2">✓</span>
+                <span>Exclusive access to premium features</span>
+              </li>
+              <li className="flex items-start">
+                <span className="text-green-500 mr-2">✓</span>
+                <span>Priority support for top referrers</span>
+              </li>
+            </ul>
+          </div>
+        </div>
 
         {/* Dashboard Features */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">

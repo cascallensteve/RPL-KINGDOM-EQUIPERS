@@ -4,6 +4,12 @@ import { authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ArrowLeft } from 'lucide-react';
 
+// Helper function to get referral code from URL
+const getReferralCodeFromURL = () => {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('ref') || '';
+};
+
 const SignUpPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -15,7 +21,9 @@ const SignUpPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [formData, setFormData] = useState({
+  
+  // Initialize form data with referral code from URL if present
+  const [formData, setFormData] = useState(() => ({
     username: '',
     email: '',
     password: '',
@@ -24,8 +32,9 @@ const SignUpPage = () => {
     gender: '',
     phone_no: '',
     county: '',
-    subcounty: ''
-  });
+    subcounty: '',
+    referralCode: getReferralCodeFromURL()
+  }));
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -200,7 +209,6 @@ const SignUpPage = () => {
         if (!formData.phone_no) return 'Phone number is required';
         if (!validatePhoneNumber(formData.phone_no)) return 'Phone number must be in format: +2547XXXXXXXX or 07XXXXXXXX';
         if (!formData.county) return 'Please select a county';
-        if (!formData.subcounty) return 'Please select a subcounty';
         return null;
       default:
         return null;
@@ -219,43 +227,77 @@ const SignUpPage = () => {
 
   const prevStep = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
-    setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    // Validate form data
     const validationError = validateStep(currentStep);
     if (validationError) {
       setError(validationError);
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError('');
-    setSuccess('');
+    if (currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1);
+      setLoading(false);
+      return;
+    }
 
+    // Submit form data
     try {
-      // Regular user signup
-      const { confirmPassword, ...submitData } = formData;
-      const response = await authAPI.signUp(submitData);
+      const response = await authAPI.signUp(formData);
       
+      // Handle successful signup
       if (response.message && response.user) {
+        // Process referral if exists
+        const referralCode = formData.referralCode || localStorage.getItem('pendingReferral');
+        if (referralCode) {
+          try {
+            // Get existing referrals or initialize empty array
+            const referrals = JSON.parse(localStorage.getItem('referralTracking') || '[]');
+            
+            // Add new referral
+            referrals.push({
+              code: referralCode,
+              email: formData.email,
+              timestamp: new Date().toISOString()
+            });
+            
+            // Save back to localStorage
+            localStorage.setItem('referralTracking', JSON.stringify(referrals));
+            
+            // Clear pending referral
+            localStorage.removeItem('pendingReferral');
+          } catch (err) {
+            console.error('Error processing referral:', err);
+            // Don't fail the signup if referral processing fails
+          }
+        }
+        
         setSuccess(response.message);
         
         // Store user data temporarily for email verification
         localStorage.setItem('temp_user_email', formData.email);
-        // If API returns token, log in and go to payment; else go to verify-email
+        
+        // If API returns token, log in and go to dashboard; else go to verify-email
         if (response.token) {
           try {
-            login(response.token, response.user);
-          } catch (_) {}
-          setTimeout(() => {
-            navigate('/payment');
-          }, 2000);
+            login(response.user, response.token);
+            setTimeout(() => {
+              navigate('/dashboard');
+            }, 1500);
+          } catch (_) {
+            // Handle login error if needed
+          }
         } else {
           setTimeout(() => {
             navigate('/verify-email');
-          }, 2000);
+          }, 1500);
         }
       }
     } catch (err) {
@@ -533,22 +575,37 @@ const SignUpPage = () => {
 
               <div>
                 <label htmlFor="subcounty" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Subcounty
+                  Subcounty (Optional)
                 </label>
                 <select
                   id="subcounty"
                   name="subcounty"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                  value={formData.subcounty}
+                  value={formData.subcounty || ''}
                   onChange={handleChange}
-                  required
                   disabled={!formData.county}
                 >
-                  <option value="">{formData.county ? 'Select a subcounty' : 'First select a county'}</option>
-                  {filteredSubcounties.map(subcounty => (
+                  <option value="">Select a subcounty (optional)</option>
+                  {formData.county && filteredSubcounties.map(subcounty => (
                     <option key={subcounty} value={subcounty}>{subcounty}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label htmlFor="referralCode" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Referral Code (Optional)
+                </label>
+                <input
+                  type="text"
+                  id="referralCode"
+                  name="referralCode"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                  value={formData.referralCode}
+                  onChange={handleChange}
+                  placeholder="Enter referral code if any"
+                />
+                <small className="text-gray-500 text-sm mt-1 block">If someone referred you, enter their code here</small>
               </div>
             </div>
           </>

@@ -102,10 +102,14 @@ export const authAPI = {
         ...userData,
         age: parseInt(userData.age, 10),
         phone_no: userData.phone_no,
+        referral_code: userData.referralCode || null, // Add referral code to the request
       };
+      
+      console.log('Sending signup data:', dataToSend);
       const response = await api.post('/signUp', dataToSend);
       return response.data;
     } catch (error) {
+      console.error('Signup error:', error.response?.data || error.message);
       throw error.response?.data || error.message;
     }
   },
