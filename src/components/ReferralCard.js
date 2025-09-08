@@ -5,7 +5,6 @@ const ReferralCard = () => {
   const [copied, setCopied] = useState(false);
   const [referralCode, setReferralCode] = useState('');
   const [referralCount, setReferralCount] = useState(0);
-  const [showShareOptions, setShowShareOptions] = useState(false);
 
   useEffect(() => {
     // Generate or retrieve referral code from localStorage
