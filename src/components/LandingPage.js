@@ -143,7 +143,7 @@ const LandingPage = () => {
             <div className="border-t border-gray-100 my-2"></div>
             <button
               onClick={() => {
-                navigate('/login');
+                navigate('/login?forceLogin=1');
                 setIsMenuOpen(false);
               }}
               className="w-full text-left px-4 py-3 text-blue-600 hover:bg-blue-50 transition-colors font-medium"
@@ -182,7 +182,7 @@ const LandingPage = () => {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <button
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate('/login?forceLogin=1')}
                     className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 shadow-xl"
                   >
                     Login Here
@@ -464,10 +464,10 @@ const LandingPage = () => {
             Join hundreds of pastors who have gained formal recognition while continuing to serve their communities with excellence.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={() => navigate('/login')} className="bg-white text-blue-600 px-8 py-4 rounded-full text-lg font-semibold hover:bg-gray-100 transform hover:scale-105 transition-all duration-300 shadow-xl">
+            <button onClick={() => navigate('/login?forceLogin=1')} className="bg-white text-blue-600 px-8 py-4 rounded-full text-lg font-semibold hover:bg-gray-100 transform hover:scale-105 transition-all duration-300 shadow-xl">
               Apply for RPL Certification
             </button>
-            <button onClick={() => navigate('/login')} className="border-2 border-white text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white hover:text-blue-600 transition-all duration-300">
+            <button onClick={() => navigate('/login?forceLogin=1')} className="border-2 border-white text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white hover:text-blue-600 transition-all duration-300">
               Support Our Mission
             </button>
           </div>

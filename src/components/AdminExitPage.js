@@ -43,7 +43,7 @@ const AdminExitPage = () => {
         </div>
 
         {/* Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {/* Admin Login */}
           <div className="group relative bg-white/95 backdrop-blur rounded-2xl shadow-xl ring-1 ring-white/20 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/0 to-blue-600/0 group-hover:from-blue-600/5 group-hover:to-blue-600/10 transition-colors pointer-events-none" />
@@ -89,6 +89,22 @@ const AdminExitPage = () => {
                 className="inline-flex items-center rounded-lg bg-green-600 text-white px-4 py-2 text-sm font-semibold hover:bg-green-700 shadow"
               >
                 Go to Landing
+              </Link>
+            </div>
+          </div>
+
+          {/* Create Super Admin */}
+          <div className="group relative bg-white/95 backdrop-blur rounded-2xl shadow-xl ring-1 ring-white/20 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/0 to-blue-600/0 group-hover:from-blue-600/5 group-hover:to-blue-600/10 transition-colors pointer-events-none" />
+            <div className="p-6">
+              <div className="text-3xl mb-3">👑</div>
+              <h3 className="text-lg font-bold text-gray-900">Create Super Admin</h3>
+              <p className="text-sm text-gray-600 mt-1 mb-4">Register a super admin account</p>
+              <Link
+                to="/super-admin-signup"
+                className="inline-flex items-center rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700 shadow"
+              >
+                Create Super Admin
               </Link>
             </div>
           </div>

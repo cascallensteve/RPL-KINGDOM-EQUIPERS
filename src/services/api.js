@@ -19,7 +19,6 @@ const api = axios.create({
 // Test the interceptor immediately
 console.log('🧪 Testing axios interceptor setup...');
 console.log('🧪 Axios instance created:', !!api);
-console.log('🧪 Interceptors attached:', api.interceptors.request.handlers.length > 0);
 
 // 🔹 Add token to requests if available
 api.interceptors.request.use((config) => {
@@ -47,8 +46,8 @@ api.interceptors.request.use((config) => {
   } else {
     config.headers.Authorization = token;
   }
-  console.log('✅ Authorization header added:', config.headers.Authorization);
-}
+  console.log('✅ Authorization header added (scheme):', String(config.headers.Authorization).split(' ')[0]);
+ }
 
   
   // Ensure we have proper headers
@@ -65,6 +64,8 @@ api.interceptors.request.use((config) => {
   
   return config;
 });
+
+console.log('🧪 Interceptors attached (after setup):', api.interceptors.request.handlers.length > 0);
 
 // 🔹 Handle unverified / unauthorized users globally
 api.interceptors.response.use(
@@ -118,6 +119,16 @@ export const authAPI = {
   adminSignUp: async (adminData) => {
     try {
       const response = await api.post('/admin-signUp', adminData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Super Admin sign up
+  superAdminSignUp: async (data) => {
+    try {
+      const response = await api.post('/super-admin-signUp', data);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -242,6 +253,66 @@ export const adminAPI = {
     try {
       const response = await api.get(`/user-details/${userId}/`);
       return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get all transactions (super-admin only)
+  getAllTransactions: async () => {
+    try {
+      const response = await api.get('/payments/all-transactions');
+      return response.data; // { message, transactions: [...] }
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get transaction details by transaction_id (super-admin only)
+  getTransactionDetails: async (transactionId) => {
+    try {
+      const response = await api.get(`/payments/transaction-details/${transactionId}/`);
+      return response.data; // { message, transaction: {...} }
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get rewards for a specific user (admin, super-admin, or owner)
+  getUserRewards: async (userId) => {
+    try {
+      const response = await api.get(`/referrals/rewards/${userId}/`);
+      return response.data; // { total_rewards, details }
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get all referrals (admin or super-admin)
+  getAllReferrals: async () => {
+    try {
+      const response = await api.get('/referrals/all-referrals');
+      return response.data; // Array of referrals
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get referrals for a specific user (admin, super-admin or owner)
+  getUserReferrals: async (userId) => {
+    try {
+      const response = await api.get(`/referrals/my-referrals/${userId}/`);
+      return response.data; // { message, referrals: [...] }
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get referral details by id (admin, super-admin or owner)
+  getReferralDetails: async (referralId) => {
+    try {
+      const response = await api.get(`/referrals/referral-details/${referralId}/`);
+      return response.data; // { message, referral: {...} }
     } catch (error) {
       throw error.response?.data || error.message;
     }

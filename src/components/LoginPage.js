@@ -34,15 +34,19 @@ const LoginPage = () => {
     return 'Good Night';
   };
 
+  // Allow forcing the login page to show even if already authenticated
+  const params = new URLSearchParams(location.search);
+  const forceLogin = Boolean(location.state?.force) || params.get('forceLogin') === '1';
+
   useEffect(() => {
-    if (user) {
-      if (user.userType === 'admin') {
+    if (user && !forceLogin) {
+      if (user.userType === 'admin' || user.userType === 'super-admin') {
         navigate('/admin-dashboard', { replace: true });
       } else {
         navigate('/dashboard', { replace: true });
       }
     }
-  }, [user, navigate]);
+  }, [user, navigate, forceLogin]);
 
   const handleChange = (e) => {
     setFormData({

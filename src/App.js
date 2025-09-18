@@ -14,10 +14,11 @@ import SimpleAdminDashboard from './admin/SimpleAdminDashboard';
 import ContactPage from './components/ContactPage';
 import AboutRPLPage from './components/AboutRPLPage';
 import AdminExitPage from './components/AdminExitPage';
+import SuperAdminSignupPage from './components/SuperAdminSignupPage';
 import './App.css';
 
-// Simple Protected Route Component
-const ProtectedRoute = ({ children, requireAdmin = false }) => {
+// Simple Protected Route Component with role support
+const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles = null }) => {
   const { user, loading } = useAuth();
 
   console.log('ProtectedRoute:', { 
@@ -47,12 +48,19 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (requireAdmin && user.userType !== 'admin') {
-    console.log('Admin required but user is not admin, redirecting to dashboard');
+  // Role checks
+  if (allowedRoles && !allowedRoles.includes(user.userType)) {
+    console.log('User role not allowed for this route, redirecting');
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (!requireAdmin && user.userType === 'admin') {
+  // Legacy admin enforcement
+  if (requireAdmin && !['admin', 'super-admin'].includes(user.userType)) {
+    console.log('Admin required but user is not admin/super-admin, redirecting to dashboard');
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!requireAdmin && ['admin','super-admin'].includes(user.userType)) {
     console.log('User is admin but trying to access user dashboard, redirecting to admin');
     return <Navigate to="/admin-dashboard" replace />;
   }
@@ -90,7 +98,15 @@ function App() {
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/about-rpl" element={<AboutRPLPage />} />
             <Route path="/admin-exit" element={<AdminExitPage />} />
-            <Route path="/admin-signup" element={<AdminSignupPage />} />
+            <Route 
+              path="/admin-signup" 
+              element={
+                <ProtectedRoute allowedRoles={['super-admin']}>
+                  <AdminSignupPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route path="/super-admin-signup" element={<SuperAdminSignupPage />} />
             <Route path="/verify-email" element={<EmailVerificationPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />

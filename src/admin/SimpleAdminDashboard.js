@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { adminAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import './SimpleAdminDashboard.css';
@@ -28,47 +29,185 @@ const SimpleAdminDashboard = () => {
   // Client details modal
   const [showClientModal, setShowClientModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
-  
-  // Sample referrals data (in real app, fetch from API)
-  const [referrals] = useState([
-    {
-      id: 1,
-      referrerName: 'John Doe',
-      referrerEmail: 'john@example.com',
-      referredName: 'Jane Smith',
-      referredEmail: 'jane@example.com',
-      referralType: 'Friend Referral',
-      status: 'Completed',
-      reward: 'KES 500',
-      date: '2024-01-15'
-    },
-    {
-      id: 2,
-      referrerName: 'Mary Johnson',
-      referrerEmail: 'mary@example.com',
-      referredName: 'Peter Wilson',
-      referredEmail: 'peter@example.com',
-      referralType: 'Family Referral',
-      status: 'Pending',
-      reward: 'KES 300',
-      date: '2024-01-10'
-    },
-    {
-      id: 3,
-      referrerName: 'David Brown',
-      referrerEmail: 'david@example.com',
-      referredName: 'Sarah Davis',
-      referredEmail: 'sarah@example.com',
-      referralType: 'Church Member',
-      status: 'Completed',
-      reward: 'KES 750',
-      date: '2024-01-08'
+
+  // Payments (super-admin only)
+  const [transactions, setTransactions] = useState([]);
+  const [txLoading, setTxLoading] = useState(false);
+  const [txError, setTxError] = useState('');
+  const [showTxModal, setShowTxModal] = useState(false);
+  const [selectedTx, setSelectedTx] = useState(null);
+  const [txSearch, setTxSearch] = useState('');
+  const [txStatus, setTxStatus] = useState(''); // '', success, failed, pending
+
+  // Rewards (admin or super-admin)
+  const [showRewardsModal, setShowRewardsModal] = useState(false);
+  const [rewardsLoading, setRewardsLoading] = useState(false);
+  const [rewardsError, setRewardsError] = useState('');
+  const [rewardsData, setRewardsData] = useState(null); // { total_rewards, details }
+  const [selectedUserForRewards, setSelectedUserForRewards] = useState(null);
+
+  // Helpers
+  const resolveUserByPhone = (phone) => {
+    if (!phone || !Array.isArray(users)) return null;
+    const norm = (p) => String(p || '').replace(/\D/g, '');
+    const p = norm(phone);
+    const last9 = p.slice(-9);
+    const variants = new Set([
+      p,
+      last9,
+      p.startsWith('254') ? '0' + last9 : '',
+      p.startsWith('0') ? '254' + p.slice(1) : '',
+      p.startsWith('254') ? p : ('254' + last9),
+    ].filter(Boolean));
+
+    for (const userObj of users) {
+      const up = norm(userObj?.phone_no);
+      if (!up) continue;
+      const ulast9 = up.slice(-9);
+      const uvars = [up, ulast9, up.startsWith('254') ? '0' + ulast9 : '', up.startsWith('0') ? '254' + up.slice(1) : '', '254' + ulast9];
+      if (uvars.some(v => variants.has(v))) {
+        return userObj;
+      }
     }
-  ]);
+    return null;
+  };
+
+  const getTransactionUserEmail = (t) => {
+    const owner = t?.owner;
+    if (owner?.email) return owner.email;
+    const u = resolveUserByPhone(t?.phone_number);
+    return u?.email || '—';
+  };
+
+  const getFilteredTransactions = () => {
+    let data = Array.isArray(transactions) ? [...transactions] : [];
+    const term = (txSearch || '').trim().toLowerCase();
+    if (term) {
+      data = data.filter(t => {
+        const name = getTransactionUserLabel(t).toLowerCase();
+        const email = (getTransactionUserEmail(t) || '').toLowerCase();
+        const phone = String(t.phone_number || '').toLowerCase();
+        const receipt = String(t.mpesa_receipt_number || '').toLowerCase();
+        return name.includes(term) || email.includes(term) || phone.includes(term) || receipt.includes(term);
+      });
+    }
+    if (txStatus) {
+      data = data.filter(t => (t.status || '').toLowerCase() === txStatus.toLowerCase());
+    }
+    return data;
+  };
+
+  const printTransactionReceipt = (tx) => {
+    if (!tx) return;
+    const name = getTransactionUserLabel(tx);
+    const email = getTransactionUserEmail(tx);
+    const phone = tx.phone_number || '—';
+    const amount = (parseFloat(tx.amount || 0) || 0).toLocaleString();
+    const status = tx.status || '—';
+    const dateStr = tx.transaction_date ? new Date(tx.transaction_date).toLocaleString() : '—';
+    const receipt = tx.mpesa_receipt_number || '—';
+    const id = tx.id || '—';
+
+    const win = window.open('', 'PRINT', 'height=700,width=600');
+    const title = `Payment Receipt - #${id}`;
+    win.document.write(`<html><head><title>${title}</title>`);
+    win.document.write(`
+      <style>
+        body{font-family:Arial,Helvetica,sans-serif;background:#f8fafc;color:#111827;margin:0;padding:24px}
+        .receipt{max-width:520px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.08);overflow:hidden}
+        .header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #f3f4f6;background:#f9fafb}
+        .logo{height:48px;width:auto;object-fit:contain}
+        h1{font-size:18px;margin:0}
+        .meta{padding:16px 20px}
+        .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #f1f5f9}
+        .row:last-child{border-bottom:none}
+        .label{color:#6b7280}
+        .value{font-weight:600}
+        .status{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:9999px;font-size:12px}
+        .status.success{background:#ecfdf5;color:#065f46}
+        .status.failed{background:#fef2f2;color:#991b1b}
+        .status.pending{background:#fff7ed;color:#9a3412}
+        .footer{padding:14px 20px;border-top:1px solid #f3f4f6;color:#6b7280;font-size:12px;text-align:center}
+      </style>
+    `);
+    win.document.write('</head><body>');
+    win.document.write(`
+      <div class="receipt">
+        <div class="header">
+          <img src="/IMAGES/LOGO.png" class="logo" alt="Logo"/>
+          <div>
+            <h1>Payment Receipt</h1>
+            <div style="color:#6b7280;font-size:12px">Receipt #: ${receipt !== '—' ? receipt : id}</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="row"><span class="label">Payer</span><span class="value">${name}</span></div>
+          <div class="row"><span class="label">Email</span><span class="value">${email}</span></div>
+          <div class="row"><span class="label">Phone</span><span class="value">${phone}</span></div>
+          <div class="row"><span class="label">Amount</span><span class="value">KES ${amount}</span></div>
+          <div class="row"><span class="label">Status</span><span class="value"><span class="status ${status}">${status}</span></span></div>
+          <div class="row"><span class="label">Date</span><span class="value">${dateStr}</span></div>
+          <div class="row"><span class="label">Transaction ID</span><span class="value">${id}</span></div>
+        </div>
+        <div class="footer">Powered by Kingdom Equippers • Thank you for your payment</div>
+      </div>
+    `);
+    win.document.write('</body></html>');
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
+  const formatTimeOnly = (iso) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    } catch {
+      return '—';
+    }
+  };
+
+  const getDisplayName = (u) => {
+    if (!u) return '—';
+    const name = u.username || [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+    return name || u.email || '—';
+  };
+
+  const getTransactionUserLabel = (t) => {
+    // Prefer server-provided owner object if available
+    const owner = t?.owner;
+    if (owner && (owner.username || owner.first_name || owner.last_name || owner.email)) {
+      return getDisplayName(owner);
+    }
+    // Fallback: resolve via phone number mapping to users list
+    const u = resolveUserByPhone(t?.phone_number);
+    if (u) return getDisplayName(u);
+    // Final fallback: mask phone last digits in local 0XXXXXXXXX form
+    const msisdn = formatMsisdnLocal(t?.phone_number);
+    return msisdn ? `Unknown (${msisdn.slice(0,3)}****${msisdn.slice(-2)})` : 'Unknown';
+  };
+
+  const formatMsisdnLocal = (phone) => {
+    if (!phone) return '';
+    const digits = String(phone).replace(/\D/g, '');
+    const last9 = digits.slice(-9);
+    if (!last9) return '';
+    // Return 0XXXXXXXXX format
+    return '0' + last9;
+  };
+  
+  // Referrals (admin or super-admin)
+  const [referrals, setReferrals] = useState([]);
+  const [referralsLoading, setReferralsLoading] = useState(false);
+  const [referralsError, setReferralsError] = useState('');
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [selectedReferral, setSelectedReferral] = useState(null);
+  const [referralSearch, setReferralSearch] = useState('');
+  const [referralRewardFilter, setReferralRewardFilter] = useState(''); // '', earned, not_earned
 
   // Fetch users on component mount
   useEffect(() => {
-    if (user && user.userType === 'admin') {
+    if (user && (user.userType === 'admin' || user.userType === 'super-admin')) {
       const timer = setTimeout(() => {
         fetchUsers();
       }, 1000);
@@ -77,9 +216,23 @@ const SimpleAdminDashboard = () => {
     }
   }, [user]);
 
+  // Fetch all transactions when Payments section is opened by a super-admin
+  useEffect(() => {
+    if (user?.userType === 'super-admin' && activeSection === 'payments') {
+      fetchTransactions();
+    }
+  }, [activeSection, user]);
+
+  // Fetch all referrals when Referrals section is opened by admin or super-admin
+  useEffect(() => {
+    if ((user?.userType === 'admin' || user?.userType === 'super-admin') && activeSection === 'referrals') {
+      fetchAllReferrals();
+    }
+  }, [activeSection, user]);
+
   // Demo realtime notifications (replace with websocket later)
   useEffect(() => {
-    if (user?.userType !== 'admin') return;
+    if (!(user?.userType === 'admin' || user?.userType === 'super-admin')) return;
     const id = setInterval(() => {
       setNotifications((prev) => {
         const ntf = {
@@ -97,46 +250,117 @@ const SimpleAdminDashboard = () => {
 
   const fetchUsers = async () => {
     setLoading(true);
-    setError('');
-    
-    const token = localStorage.getItem('rpl_token');
-    
-    if (!token) {
-      setError('No authentication token found. Please log in again.');
-      setLoading(false);
-      return;
-    }
-    
+    setError(null);
     try {
-      const response = await fetch('https://kingdom-equippers-rpl.vercel.app/all-users', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        if (response.status === 403) {
-          throw new Error('Access denied. You need admin privileges to view users.');
-        } else if (response.status === 401) {
-          throw new Error('Authentication failed. Please log in again.');
-        } else {
-          throw new Error(`API Error: ${response.status} - ${response.statusText}`);
-        }
-      }
-      
-      const data = await response.json();
-      setUsers(data.users || []);
-      setSuccess(`Successfully loaded ${data.users?.length || 0} users`);
-      
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      setError(error.message || 'Failed to fetch users. Please try again.');
-      setUsers([]);
+      const data = await adminAPI.getAllUsers();
+      const fetched = data.users || data || [];
+      setUsers(fetched);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError((err && (err.message || err.detail)) || 'Failed to fetch users');
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchTransactions = async () => {
+    if (txLoading) return;
+    setTxLoading(true);
+    setTxError('');
+    try {
+      const data = await adminAPI.getAllTransactions();
+      const list = data.transactions || [];
+      setTransactions(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.error('Error fetching transactions:', err);
+      setTxError((err && (err.message || err.detail)) || 'Failed to fetch transactions');
+      setTransactions([]);
+    } finally {
+      setTxLoading(false);
+    }
+  };
+
+  const viewTransactionDetails = async (txId) => {
+    if (!txId) return;
+    setSelectedTx(null);
+    setShowTxModal(true);
+    try {
+      const data = await adminAPI.getTransactionDetails(txId);
+      setSelectedTx(data.transaction || null);
+    } catch (err) {
+      console.error('Error fetching transaction details:', err);
+      setSelectedTx({ error: (err && (err.message || err.detail)) || 'Failed to fetch transaction details' });
+    }
+  };
+
+  const openRewards = async (u) => {
+    if (!u) return;
+    setSelectedUserForRewards(u);
+    setRewardsData(null);
+    setRewardsError('');
+    setShowRewardsModal(true);
+    setRewardsLoading(true);
+    try {
+      const data = await adminAPI.getUserRewards(u.id);
+      setRewardsData({
+        total_rewards: data.total_rewards ?? 0,
+        details: Array.isArray(data.details) ? data.details : []
+      });
+    } catch (err) {
+      console.error('Error fetching rewards:', err);
+      setRewardsError((err && (err.message || err.detail)) || 'Failed to fetch rewards');
+    } finally {
+      setRewardsLoading(false);
+    }
+  };
+
+  const fetchAllReferrals = async () => {
+    if (referralsLoading) return;
+    setReferralsLoading(true);
+    setReferralsError('');
+    try {
+      const data = await adminAPI.getAllReferrals();
+      // API returns an array
+      setReferrals(Array.isArray(data) ? data : (data.referrals || []));
+    } catch (err) {
+      console.error('Error fetching referrals:', err);
+      setReferralsError((err && (err.message || err.detail)) || 'Failed to fetch referrals');
+      setReferrals([]);
+    } finally {
+      setReferralsLoading(false);
+    }
+  };
+
+  const viewReferralDetails = async (refId) => {
+    if (!refId) return;
+    setSelectedReferral(null);
+    setShowReferralModal(true);
+    try {
+      const data = await adminAPI.getReferralDetails(refId);
+      setSelectedReferral(data.referral || null);
+    } catch (err) {
+      console.error('Error fetching referral details:', err);
+      setSelectedReferral({ error: (err && (err.message || err.detail)) || 'Failed to fetch referral details' });
+    }
+  };
+
+  const getFilteredReferrals = () => {
+    let data = Array.isArray(referrals) ? [...referrals] : [];
+    const term = (referralSearch || '').trim().toLowerCase();
+    if (term) {
+      data = data.filter(r => {
+        const refName = (r.referrer?.username || '').toLowerCase();
+        const refEmail = (r.referrer?.email || '').toLowerCase();
+        const recName = (r.referred?.username || '').toLowerCase();
+        const recEmail = (r.referred?.email || '').toLowerCase();
+        return refName.includes(term) || refEmail.includes(term) || recName.includes(term) || recEmail.includes(term);
+      });
+    }
+    if (referralRewardFilter) {
+      const want = referralRewardFilter === 'earned';
+      data = data.filter(r => !!r.reward_earned === want);
+    }
+    return data;
   };
 
   const handleLogout = () => {
@@ -232,14 +456,23 @@ const SimpleAdminDashboard = () => {
     win.print();
   };
 
-  // Navigation items with Material Icons
-  const navigationItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { id: 'users', label: 'Users', icon: 'people' },
-    { id: 'certifications', label: 'Certifications', icon: 'workspace_premium' },
-    { id: 'payments', label: 'Payments', icon: 'payment' },
-    { id: 'referrals', label: 'Referrals', icon: 'share' }
-  ];
+  // Navigation items with Material Icons (payments visible only to super-admin)
+  const navigationItems = (
+    user?.userType === 'super-admin'
+      ? [
+          { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+          { id: 'users', label: 'Users', icon: 'people' },
+          { id: 'certifications', label: 'Certifications', icon: 'workspace_premium' },
+          { id: 'payments', label: 'Payments', icon: 'payment' },
+          { id: 'referrals', label: 'Referrals', icon: 'share' }
+        ]
+      : [
+          { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+          { id: 'users', label: 'Users', icon: 'people' },
+          { id: 'certifications', label: 'Certifications', icon: 'workspace_premium' },
+          { id: 'referrals', label: 'Referrals', icon: 'share' }
+        ]
+  );
 
   // Handle client details view
   const viewClientDetails = (client) => {
@@ -249,7 +482,9 @@ const SimpleAdminDashboard = () => {
 
   // Render different sections based on active selection
   const renderContent = () => {
-    switch (activeSection) {
+    // Prevent non-super-admins from accessing payments section
+    const section = (user?.userType === 'super-admin') ? activeSection : (activeSection === 'payments' ? 'dashboard' : activeSection);
+    switch (section) {
       case 'dashboard':
         return renderDashboard();
       case 'users':
@@ -475,6 +710,17 @@ const SimpleAdminDashboard = () => {
                         <span className="material-icons">visibility</span>
                         View
                       </button>
+                      { (user?.userType === 'admin' || user?.userType === 'super-admin') && (
+                        <button
+                          className="btn-export"
+                          onClick={() => openRewards(user)}
+                          title="View rewards"
+                          style={{marginLeft:'6px'}}
+                        >
+                          <span className="material-icons">card_giftcard</span>
+                          Rewards
+                        </button>
+                      ) }
                       <button
                         className="btn-export"
                         onClick={() => printUser(user)}
@@ -567,19 +813,25 @@ const SimpleAdminDashboard = () => {
   );
 
   const renderPayments = () => (
-    <div className="content-section">
+    <div className="content-section" style={{ maxWidth: '1100px', margin: '0 auto' }}>
       <div className="section-header">
         <h2><span className="material-icons">payment</span> Payments</h2>
         <p>Track and manage payment transactions</p>
       </div>
-      
+
+      {/* Stats based on fetched transactions */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon">
             <span className="material-icons">account_balance_wallet</span>
           </div>
           <div className="stat-content">
-            <h3>KES 245</h3>
+            <h3>
+              KES {transactions
+                .filter(t => (t.status === 'success' || t.status === 'completed'))
+                .reduce((sum, t) => sum + (parseFloat(t.amount || 0) || 0), 0)
+                .toLocaleString()}
+            </h3>
             <p>Total Revenue</p>
           </div>
         </div>
@@ -588,7 +840,7 @@ const SimpleAdminDashboard = () => {
             <span className="material-icons">payment</span>
           </div>
           <div className="stat-content">
-            <h3>87</h3>
+            <h3>{transactions.length}</h3>
             <p>Total Payments</p>
           </div>
         </div>
@@ -597,53 +849,240 @@ const SimpleAdminDashboard = () => {
             <span className="material-icons">hourglass_empty</span>
           </div>
           <div className="stat-content">
-            <h3>5</h3>
+            <h3>{transactions.filter(t => t.status === 'pending').length}</h3>
             <p>Pending</p>
           </div>
         </div>
       </div>
 
-      <div className="payments-list">
-        <h3><span className="material-icons">timeline</span> Recent Payments</h3>
-        <div className="payment-item">
-          <span className="payment-icon">
-            <span className="material-icons">payment</span>
-          </span>
-          <div className="payment-content">
-            <h4>Registration Fee</h4>
-            <p>John Doe - KES 1</p>
-            <small>Processed: 1 hour ago</small>
-          </div>
-          <span className="payment-status success">
-            <span className="material-icons">verified</span>
-            Success
-          </span>
+      {/* Controls */}
+      <div className="section-header" style={{marginTop:'8px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'8px'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+          <h3 style={{marginRight:'12px'}}><span className="material-icons">table_chart</span> All Transactions</h3>
+          <input
+            type="text"
+            placeholder="Search by name, email, phone or receipt"
+            value={txSearch}
+            onChange={(e)=>setTxSearch(e.target.value)}
+            style={{padding:'6px 8px',border:'1px solid #ddd',borderRadius:'6px',minWidth:'260px'}}
+          />
+          <select value={txStatus} onChange={(e)=>setTxStatus(e.target.value)} style={{padding:'6px 8px',border:'1px solid #ddd',borderRadius:'6px'}}>
+            <option value="">All Status</option>
+            <option value="success">Success</option>
+            <option value="completed">Completed</option>
+            <option value="pending">Pending</option>
+            <option value="failed">Failed</option>
+          </select>
         </div>
-        <div className="payment-item">
-          <span className="payment-icon">
-            <span className="material-icons">hourglass_empty</span>
-          </span>
-          <div className="payment-content">
-            <h4>Registration Fee</h4>
-            <p>Mary Smith - KES 1</p>
-            <small>Initiated: 2 hours ago</small>
-          </div>
-          <span className="payment-status pending">
-            <span className="material-icons">pending</span>
-            Pending
-          </span>
+        <div style={{display:'flex',gap:'8px'}}>
+          <button className="btn-refresh" onClick={fetchTransactions} disabled={txLoading}>
+            <span className="material-icons">{txLoading ? 'hourglass_empty' : 'refresh'}</span>
+            {txLoading ? 'Loading...' : 'Refresh'}
+          </button>
         </div>
+      </div>
+
+      {txError && (
+        <div className="notification error" style={{marginBottom:'12px'}}>
+          <span>{txError}</span>
+          <button onClick={() => setTxError('')}>×</button>
+        </div>
+      )}
+
+      {/* Transaction Details Modal (Super Admin) */}
+      {showTxModal && (
+        <div className="modal-overlay" onClick={() => setShowTxModal(false)}>
+          <div className="client-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3><span className="material-icons">receipt_long</span> Transaction Details</h3>
+              <button onClick={() => setShowTxModal(false)} className="modal-close">×</button>
+            </div>
+            <div className="modal-content">
+              {!selectedTx ? (
+                <div className="loading-state">
+                  <div className="spinner"></div>
+                  <p>Loading transaction...</p>
+                </div>
+              ) : selectedTx.error ? (
+                <div className="notification error">
+                  <span>{selectedTx.error}</span>
+                </div>
+              ) : (
+                <div className="client-details-grid">
+                  <div className="detail-section">
+                    <h4><span className="material-icons">info</span> Basic</h4>
+                    <div className="detail-row"><label>ID:</label><span>{selectedTx.id}</span></div>
+                    <div className="detail-row"><label>Status:</label><span className={`status ${selectedTx.status}`}><span className="material-icons">{selectedTx.status === 'success' || selectedTx.status === 'completed' ? 'verified' : (selectedTx.status === 'failed' ? 'error' : 'pending')}</span>{selectedTx.status}</span></div>
+                    <div className="detail-row"><label>Amount:</label><span>KES {(parseFloat(selectedTx.amount || 0) || 0).toLocaleString()}</span></div>
+                    <div className="detail-row"><label>Date:</label><span>{selectedTx.transaction_date ? new Date(selectedTx.transaction_date).toLocaleString() : '—'}</span></div>
+                  </div>
+                  <div className="detail-section">
+                    <h4><span className="material-icons">receipt_long</span> Receipt</h4>
+                    <div className="detail-row"><label>Receipt No.:</label><span>{selectedTx.mpesa_receipt_number || '—'}</span></div>
+                  </div>
+                  <div className="detail-section">
+                    <h4><span className="material-icons">contact_phone</span> Contact</h4>
+                    <div className="detail-row"><label>Phone:</label><span>{selectedTx.phone_number || '—'}</span></div>
+                    <div className="detail-row"><label>User:</label><span>{getTransactionUserLabel(selectedTx)}</span></div>
+                    <div className="detail-row"><label>Email:</label><span>{getTransactionUserEmail(selectedTx)}</span></div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="btn-action" onClick={() => printTransactionReceipt(selectedTx)}>
+                <span className="material-icons">print</span>
+                Print Receipt
+              </button>
+              <button className="btn-cancel" onClick={() => setShowTxModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rewards Modal (Super Admin and owner/admin by endpoint policy; UI exposed here to super-admin) */}
+      {showRewardsModal && (
+        <div className="modal-overlay" onClick={() => setShowRewardsModal(false)}>
+          <div className="client-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3><span className="material-icons">card_giftcard</span> Rewards for {selectedUserForRewards?.username || ''}</h3>
+              <button onClick={() => setShowRewardsModal(false)} className="modal-close">×</button>
+            </div>
+            <div className="modal-content">
+              {rewardsLoading ? (
+                <div className="loading-state">
+                  <div className="spinner"></div>
+                  <p>Loading rewards...</p>
+                </div>
+              ) : rewardsError ? (
+                <div className="notification error">
+                  <span>{rewardsError}</span>
+                  <button onClick={() => setRewardsError('')}>×</button>
+                </div>
+              ) : !rewardsData ? (
+                <div className="empty-state">
+                  <h4>No data</h4>
+                </div>
+              ) : (
+                <>
+                  <div className="stats-grid" style={{marginBottom:'12px'}}>
+                    <div className="stat-card">
+                      <div className="stat-icon">
+                        <span className="material-icons">savings</span>
+                      </div>
+                      <div className="stat-content">
+                        <h3>KES {(parseFloat(rewardsData.total_rewards || 0) || 0).toLocaleString()}</h3>
+                        <p>Total Rewards</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="users-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Description</th>
+                          <th>Amount (KES)</th>
+                          <th>Date</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rewardsData.details.length === 0 ? (
+                          <tr>
+                            <td colSpan="5" style={{ textAlign:'center', color:'#6b7280' }}>No rewards found</td>
+                          </tr>
+                        ) : rewardsData.details.map((r, idx) => (
+                          <tr key={idx}>
+                            <td>{idx + 1}</td>
+                            <td>{r.description || '—'}</td>
+                            <td>{(parseFloat(r.amount || 0) || 0).toLocaleString()}</td>
+                            <td>{r.date ? new Date(r.date).toLocaleDateString() : '—'}</td>
+                            <td>{r.status || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setShowRewardsModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="users-section" style={{ overflowX: 'auto' }}>
+        {txLoading ? (
+          <div className="loading-state">
+            <div className="spinner"></div>
+            <p>Loading transactions...</p>
+          </div>
+        ) : transactions.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-icon">
+              <span className="material-icons">payment</span>
+            </span>
+            <h4>No transactions found</h4>
+            <p>Click refresh to load transactions or check your connection.</p>
+          </div>
+        ) : (
+          <div className="users-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>User</th>
+                  <th>Phone</th>
+                  <th>Amount (KES)</th>
+                  <th>Status</th>
+                  <th>Receipt</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {getFilteredTransactions().map(t => (
+                  <tr key={t.id}>
+                    <td>{t.id}</td>
+                    <td>{getTransactionUserLabel(t)}</td>
+                    <td>{t.phone_number || '—'}</td>
+                    <td>{(parseFloat(t.amount || 0) || 0).toLocaleString()}</td>
+                    <td>
+                      <span className={`status ${t.status || 'pending'}`}>
+                        <span className="material-icons">{t.status === 'success' || t.status === 'completed' ? 'verified' : (t.status === 'failed' ? 'error' : 'pending')}</span>
+                        {t.status || 'pending'}
+                      </span>
+                    </td>
+                    <td>{t.mpesa_receipt_number || '—'}</td>
+                    <td>{t.transaction_date ? new Date(t.transaction_date).toLocaleDateString() : '—'}</td>
+                    <td>{t.transaction_date ? formatTimeOnly(t.transaction_date) : '—'}</td>
+                    <td>
+                      <button className="btn-view-client" title="View details" onClick={() => viewTransactionDetails(t.id)}>
+                        <span className="material-icons">visibility</span>
+                        Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
 
   const renderReferrals = () => (
-    <div className="content-section">
+    <div className="content-section" style={{ maxWidth: '1100px', margin: '0 auto' }}>
       <div className="section-header">
         <h2><span className="material-icons">share</span> Referral Management</h2>
         <p>Track and manage user referrals and rewards</p>
       </div>
-      
+
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon">
@@ -656,131 +1095,147 @@ const SimpleAdminDashboard = () => {
         </div>
         <div className="stat-card">
           <div className="stat-icon">
-            <span className="material-icons">verified</span>
+            <span className="material-icons">savings</span>
           </div>
           <div className="stat-content">
-            <h3>{referrals.filter(r => r.status === 'Completed').length}</h3>
-            <p>Completed</p>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">
-            <span className="material-icons">hourglass_empty</span>
-          </div>
-          <div className="stat-content">
-            <h3>{referrals.filter(r => r.status === 'Pending').length}</h3>
-            <p>Pending</p>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">
-            <span className="material-icons">trending_up</span>
-          </div>
-          <div className="stat-content">
-            <h3>KES {referrals.reduce((sum, r) => sum + parseInt(r.reward.replace('KES ', '')), 0).toLocaleString()}</h3>
-            <p>Total Rewards</p>
+            <h3>{referrals.filter(r => !!r.reward_earned).length}</h3>
+            <p>Rewards Earned</p>
           </div>
         </div>
       </div>
 
-      <div className="referrals-table-section">
-        <h3><span className="material-icons">table_chart</span> Referral Details</h3>
-        <div className="referrals-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Referrer</th>
-                <th>Referred User</th>
-                <th>Referral Type</th>
-                <th>Status</th>
-                <th>Reward</th>
-                <th>Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {referrals.map(referral => (
-                <tr key={referral.id}>
-                  <td>
-                    <div className="referrer-info">
-                      <strong>{referral.referrerName}</strong>
-                      <br />
-                      <small className="email-text">{referral.referrerEmail}</small>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="referred-info">
-                      <strong>{referral.referredName}</strong>
-                      <br />
-                      <small className="email-text">{referral.referredEmail}</small>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`referral-type ${referral.referralType.toLowerCase().replace(' ', '-')}`}>
-                      {referral.referralType}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`referral-status ${referral.status.toLowerCase()}`}>
-                      <span className="material-icons">
-                        {referral.status === 'Completed' ? 'verified' : 'pending'}
-                      </span>
-                      {referral.status}
-                    </span>
-                  </td>
-                  <td className="reward-amount">{referral.reward}</td>
-                  <td>{new Date(referral.date).toLocaleDateString()}</td>
-                  <td>
-                    <button 
-                      className="btn-view-referral"
-                      onClick={() => alert(`Viewing details for referral ID: ${referral.id}`)}
-                      title="View referral details"
-                    >
-                      <span className="material-icons">visibility</span>
-                      Details
-                    </button>
-                  </td>
+      {/* Filters */}
+      <div className="section-header" style={{marginTop:'8px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'8px'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+          <h3 style={{marginRight:'12px'}}><span className="material-icons">table_chart</span> All Referrals</h3>
+          <input
+            type="text"
+            placeholder="Search referrer/referred name or email"
+            value={referralSearch}
+            onChange={(e)=>setReferralSearch(e.target.value)}
+            style={{padding:'6px 8px',border:'1px solid #ddd',borderRadius:'6px',minWidth:'280px'}}
+          />
+          <select value={referralRewardFilter} onChange={(e)=>setReferralRewardFilter(e.target.value)} style={{padding:'6px 8px',border:'1px solid #ddd',borderRadius:'6px'}}>
+            <option value="">All</option>
+            <option value="earned">Reward Earned</option>
+            <option value="not_earned">No Reward</option>
+          </select>
+        </div>
+        <div style={{display:'flex',gap:'8px'}}>
+          <button className="btn-refresh" onClick={fetchAllReferrals} disabled={referralsLoading}>
+            <span className="material-icons">{referralsLoading ? 'hourglass_empty' : 'refresh'}</span>
+            {referralsLoading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+      </div>
+
+      {referralsError && (
+        <div className="notification error" style={{marginBottom:'12px'}}>
+          <span>{referralsError}</span>
+          <button onClick={() => setReferralsError('')}>×</button>
+        </div>
+      )}
+
+      {/* Referral Details Modal */}
+      {showReferralModal && (
+        <div className="modal-overlay" onClick={() => setShowReferralModal(false)}>
+          <div className="client-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3><span className="material-icons">visibility</span> Referral Details</h3>
+              <button onClick={() => setShowReferralModal(false)} className="modal-close">×</button>
+            </div>
+            <div className="modal-content">
+              {!selectedReferral ? (
+                <div className="loading-state">
+                  <div className="spinner"></div>
+                  <p>Loading referral...</p>
+                </div>
+              ) : selectedReferral.error ? (
+                <div className="notification error"><span>{selectedReferral.error}</span></div>
+              ) : (
+                <div className="client-details-grid">
+                  <div className="detail-section">
+                    <h4><span className="material-icons">person</span> Referrer</h4>
+                    <div className="detail-row"><label>Name:</label><span>{selectedReferral.referrer?.username || '—'}</span></div>
+                    <div className="detail-row"><label>Email:</label><span>{selectedReferral.referrer?.email || '—'}</span></div>
+                  </div>
+                  <div className="detail-section">
+                    <h4><span className="material-icons">person_add</span> Referred</h4>
+                    <div className="detail-row"><label>Name:</label><span>{selectedReferral.referred?.username || '—'}</span></div>
+                    <div className="detail-row"><label>Email:</label><span>{selectedReferral.referred?.email || '—'}</span></div>
+                  </div>
+                  <div className="detail-section">
+                    <h4><span className="material-icons">info</span> Meta</h4>
+                    <div className="detail-row"><label>ID:</label><span>{selectedReferral.id}</span></div>
+                    <div className="detail-row"><label>Date:</label><span>{selectedReferral.created_at ? new Date(selectedReferral.created_at).toLocaleString() : '—'}</span></div>
+                    <div className="detail-row"><label>Reward Earned:</label><span>{selectedReferral.reward_earned ? 'Yes' : 'No'}</span></div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setShowReferralModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="referrals-table-section" style={{ overflowX:'auto' }}>
+        <h3><span className="material-icons">table_chart</span> All Referrals</h3>
+        {referralsLoading ? (
+          <div className="loading-state"><div className="spinner"></div><p>Loading referrals...</p></div>
+        ) : getFilteredReferrals().length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-icon"><span className="material-icons">people_outline</span></span>
+            <h4>No referrals found</h4>
+            <p>Click refresh to load referrals or adjust your filters.</p>
+          </div>
+        ) : (
+          <div className="referrals-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Referrer</th>
+                  <th>Referrer Email</th>
+                  <th>Referred</th>
+                  <th>Referred Email</th>
+                  <th>Date</th>
+                  <th>Reward Earned</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="referral-types-section">
-        <h3><span className="material-icons">category</span> Referral Types Overview</h3>
-        <div className="referral-types-grid">
-          <div className="referral-type-card">
-            <div className="type-icon">
-              <span className="material-icons">people</span>
-            </div>
-            <div className="type-content">
-              <h4>Friend Referral</h4>
-              <p>Reward: KES 500</p>
-              <small>{referrals.filter(r => r.referralType === 'Friend Referral').length} referrals</small>
-            </div>
+              </thead>
+              <tbody>
+                {getFilteredReferrals().map(r => (
+                  <tr key={r.id}>
+                    <td>{r.id}</td>
+                    <td>{r.referrer?.username || '—'}</td>
+                    <td className="email-text">{r.referrer?.email || '—'}</td>
+                    <td>{r.referred?.username || '—'}</td>
+                    <td className="email-text">{r.referred?.email || '—'}</td>
+                    <td>{r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}</td>
+                    <td>
+                      <span className={`status ${r.reward_earned ? 'verified' : 'pending'}`}>
+                        <span className="material-icons">{r.reward_earned ? 'verified' : 'pending'}</span>
+                        {r.reward_earned ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                    <td>
+                      <button 
+                        className="btn-view-referral"
+                        onClick={() => viewReferralDetails(r.id)}
+                        title="View referral details"
+                      >
+                        <span className="material-icons">visibility</span>
+                        Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className="referral-type-card">
-            <div className="type-icon">
-              <span className="material-icons">family_restroom</span>
-            </div>
-            <div className="type-content">
-              <h4>Family Referral</h4>
-              <p>Reward: KES 300</p>
-              <small>{referrals.filter(r => r.referralType === 'Family Referral').length} referrals</small>
-            </div>
-          </div>
-          <div className="referral-type-card">
-            <div className="type-icon">
-              <span className="material-icons">church</span>
-            </div>
-            <div className="type-content">
-              <h4>Church Member</h4>
-              <p>Reward: KES 750</p>
-              <small>{referrals.filter(r => r.referralType === 'Church Member').length} referrals</small>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -796,7 +1251,7 @@ const SimpleAdminDashboard = () => {
     );
   }
 
-  if (user.userType !== 'admin') {
+  if (!(user.userType === 'admin' || user.userType === 'super-admin')) {
     navigate('/dashboard', { replace: true });
     return null;
   }
