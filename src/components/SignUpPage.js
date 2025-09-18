@@ -202,7 +202,6 @@ const SignUpPage = () => {
         return null;
       case 3:
         if (!formData.age) return 'Age is required';
-        if (formData.age < 18 || formData.age > 120) return 'Age must be between 18 and 120';
         if (!formData.gender) return 'Please select your gender';
         return null;
       case 4:
@@ -490,20 +489,24 @@ const SignUpPage = () => {
             <div className="space-y-6">
               <div>
                 <label htmlFor="age" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Age
+                  Age Group
                 </label>
-                <input
-                  type="number"
+                <select
                   id="age"
                   name="age"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
                   value={formData.age}
                   onChange={handleChange}
                   required
-                  placeholder="Enter your age"
-                  min="18"
-                  max="120"
-                />
+                >
+                  <option value="">Select your age group</option>
+                  <option value="18-25">18-25</option>
+                  <option value="26-35">26-35</option>
+                  <option value="36-46">36-46</option>
+                  <option value="46-55">46-55</option>
+                  <option value="55-65">55-65</option>
+                  <option value="65+">65+</option>
+                </select>
                 <small className="text-gray-500 text-sm mt-1 block">You must be at least 18 years old</small>
               </div>
 

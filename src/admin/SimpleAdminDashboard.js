@@ -166,7 +166,7 @@ const SimpleAdminDashboard = () => {
       win.document.write(`<html><head><title>${title}</title>`);
       win.document.write('<style>body{font-family:Arial,sans-serif;padding:20px;} h1{margin-bottom:12px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ddd;padding:8px;font-size:12px;} th{background:#f3f4f6;text-align:left;} .muted{color:#666;font-size:12px;margin:8px 0 16px}</style>');
       win.document.write('</head><body>');
-      win.document.write(`<h1>Users Report</h1><div class="muted">${title}</div>`);
+      win.document.write(`<h1>${title}</h1><div class="muted">${title}</div>`);
       win.document.write('<table><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Type</th><th>Status</th><th>County</th><th>Phone</th></tr></thead><tbody>');
       data.forEach(u => {
         win.document.write(`<tr><td>${u.id}</td><td>${u.username||''}</td><td>${u.email||''}</td><td>${u.userType||''}</td><td>${u.is_email_verified?'Verified':'Pending'}</td><td>${u.county||'N/A'}</td><td>${u.phone_no||'N/A'}</td></tr>`);
@@ -213,7 +213,7 @@ const SimpleAdminDashboard = () => {
     win.document.write(`<html><head><title>${title}</title>`);
     win.document.write('<style>body{font-family:Arial,sans-serif;padding:20px;} h1{margin-bottom:12px;} .row{margin:6px 0;} .label{display:inline-block;min-width:140px;color:#374151;font-weight:600} .value{color:#111827} .muted{color:#6b7280;margin-bottom:12px}</style>');
     win.document.write('</head><body>');
-    win.document.write(`<h1>${title}</h1><div class=\"muted\">Printed: ${new Date().toLocaleString()}</div>`);
+    win.document.write(`<h1>${title}</h1><div class="muted">Printed: ${new Date().toLocaleString()}</div>`);
     const fields = [
       ['ID', u.id],
       ['Name', u.username || ''],
@@ -224,7 +224,7 @@ const SimpleAdminDashboard = () => {
       ['Phone', u.phone_no || 'N/A']
     ];
     fields.forEach(([label, value]) => {
-      win.document.write(`<div class=\"row\"><span class=\"label\">${label}:</span> <span class=\"value\">${value}</span></div>`);
+      win.document.write(`<div class="row"><span class="label">${label}:</span> <span class="value">${value}</span></div>`);
     });
     win.document.write('</body></html>');
     win.document.close();

@@ -32,6 +32,22 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('users');
   const [paymentLoading, setPaymentLoading] = useState(false);
 
+  // Normalize age to age group for display and exports
+  const formatAgeGroup = (age) => {
+    if (!age && age !== 0) return 'N/A';
+    // If it's already a group string like "26-35" or "65+", return as-is
+    if (typeof age === 'string' && (age.includes('-') || age.endsWith('+'))) return age;
+    const n = parseInt(age, 10);
+    if (isNaN(n)) return String(age);
+    if (n >= 18 && n <= 25) return '18-25';
+    if (n >= 26 && n <= 35) return '26-35';
+    if (n >= 36 && n <= 46) return '36-46';
+    if (n >= 47 && n <= 55) return '46-55';
+    if (n >= 56 && n <= 65) return '55-65';
+    if (n >= 66) return '65+';
+    return String(age);
+  };
+
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 5000);
@@ -384,7 +400,7 @@ const AdminDashboard = () => {
         user.county || 'N/A',
         user.subcounty || 'N/A',
         user.phone_no || 'N/A',
-        user.age || 'N/A',
+        formatAgeGroup(user.age) || 'N/A',
         user.gender || 'N/A',
         user.registered ? 'Yes' : 'No'
       ]);
@@ -670,7 +686,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="detail-item">
                   <label>Age:</label>
-                  <span>{userDetails.age || 'N/A'}</span>
+                  <span>{formatAgeGroup(userDetails.age) || 'N/A'}</span>
                 </div>
                 <div className="detail-item">
                   <label>Gender:</label>
