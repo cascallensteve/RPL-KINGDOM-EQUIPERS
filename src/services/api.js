@@ -69,6 +69,25 @@ api.interceptors.request.use((config) => {
 
 console.log('🧪 Interceptors attached (after setup):', api.interceptors.request.handlers.length > 0);
 
+// Helper to normalize API errors to proper Error instances
+const throwApiError = (error, defaultMessage = 'Request failed') => {
+  try {
+    const data = error?.response?.data;
+    if (data && typeof data === 'object') {
+      const msg = data.detail || data.message || defaultMessage;
+      const err = new Error(msg);
+      Object.assign(err, data);
+      throw err;
+    }
+    const msg = error?.message || String(data) || defaultMessage;
+    throw new Error(msg);
+  } catch (e) {
+    // If something goes wrong while constructing error, rethrow a safe Error
+    if (e instanceof Error) throw e;
+    throw new Error(defaultMessage);
+  }
+};
+
 // 🔹 Handle unverified / unauthorized users globally
 api.interceptors.response.use(
   (response) => response,
@@ -134,9 +153,11 @@ export const authAPI = {
           else if (typeof val === 'string') fieldErrors.push(`${key}: ${val}`);
         }
         const message = fieldErrors.length ? fieldErrors.join(' | ') : (resp.detail || 'Registration failed');
-        throw { message, ...resp };
+        const err = new Error(message);
+        Object.assign(err, resp);
+        throw err;
       }
-      throw error.response?.data || { message: error.message };
+      throwApiError(error, 'Registration failed');
     }
   },
 
@@ -146,7 +167,7 @@ export const authAPI = {
       const response = await api.post('/admin-signUp', adminData);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -156,7 +177,7 @@ export const authAPI = {
       const response = await api.post('/super-admin-signUp', data);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -166,7 +187,7 @@ export const authAPI = {
       const response = await api.post('/login', credentials);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -176,7 +197,7 @@ export const authAPI = {
       const response = await api.post('/verify-email', verificationData);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -186,7 +207,7 @@ export const authAPI = {
       const response = await api.post('/forgot-password', { email });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -196,7 +217,7 @@ export const authAPI = {
       const response = await api.post('/reset-password', resetData);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -206,7 +227,7 @@ export const authAPI = {
       const response = await api.post('/resend-verification-otp', { email });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -219,7 +240,7 @@ export const authAPI = {
       const response = await api.post('/payments/pay', paymentData);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -230,7 +251,7 @@ export const authAPI = {
       return response.data;
     } catch (error) {
       console.error('Payment status update error:', error);
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -241,7 +262,7 @@ export const authAPI = {
       return response.data;
     } catch (error) {
       console.error('Error getting user payment status:', error);
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 };
@@ -255,7 +276,7 @@ export const contactAPI = {
       const response = await api.post('/newsletters/contact-us', payload);
       return response.data; // { message, contact }
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -265,7 +286,7 @@ export const contactAPI = {
       const response = await api.get('/newsletters/all-contacts');
       return response.data; // { message, contacts: [] }
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -275,7 +296,7 @@ export const contactAPI = {
       const response = await api.get(`/newsletters/contact-details/${contactId}/`);
       return response.data; // { message, contact }
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 };
@@ -303,7 +324,7 @@ export const adminAPI = {
         status: error.response?.status,
         statusText: error.response?.statusText
       });
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -313,7 +334,7 @@ export const adminAPI = {
       const response = await api.get(`/user-details/${userId}/`);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -323,7 +344,7 @@ export const adminAPI = {
       const response = await api.get('/payments/all-transactions');
       return response.data; // { message, transactions: [...] }
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -333,7 +354,7 @@ export const adminAPI = {
       const response = await api.get(`/payments/transaction-details/${transactionId}/`);
       return response.data; // { message, transaction: {...} }
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -343,7 +364,7 @@ export const adminAPI = {
       const response = await api.get(`/referrals/rewards/${userId}/`);
       return response.data; // { total_rewards, details }
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -353,7 +374,7 @@ export const adminAPI = {
       const response = await api.get('/referrals/all-referrals');
       return response.data; // Array of referrals
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -363,7 +384,7 @@ export const adminAPI = {
       const response = await api.get(`/referrals/my-referrals/${userId}/`);
       return response.data; // { message, referrals: [...] }
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -373,7 +394,7 @@ export const adminAPI = {
       const response = await api.get(`/referrals/referral-details/${referralId}/`);
       return response.data; // { message, referral: {...} }
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 };
@@ -398,9 +419,13 @@ export const newsletterAPI = {
           if (Array.isArray(v)) msgs.push(`${k}: ${v.join(', ')}`);
           else if (typeof v === 'string') msgs.push(`${k}: ${v}`);
         }
-        if (msgs.length) throw { message: msgs.join(' | '), ...resp };
+        if (msgs.length) {
+          const err = new Error(msgs.join(' | '));
+          Object.assign(err, resp);
+          throw err;
+        }
       }
-      throw error.response?.data || { message: error.message };
+      throwApiError(error);
     }
   },
 
@@ -410,7 +435,7 @@ export const newsletterAPI = {
       const response = await api.post('/newsletters/send-newsletter', { subject, body });
       return response.data; // { message }
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -420,7 +445,7 @@ export const newsletterAPI = {
       const response = await api.get('/newsletters/all-newsletters');
       return response.data; // { message, Newsletters: [...] }
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 
@@ -430,7 +455,7 @@ export const newsletterAPI = {
       const response = await api.get(`/newsletters/newsletter-detail/${newsletterId}/`);
       return response.data; // { message, Newsletter }
     } catch (error) {
-      throw error.response?.data || error.message;
+      throwApiError(error);
     }
   },
 };

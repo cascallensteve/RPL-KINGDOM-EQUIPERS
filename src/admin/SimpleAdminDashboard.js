@@ -237,6 +237,7 @@ const SimpleAdminDashboard = () => {
       )}
     </div>
   );
+  /* eslint-enable no-unused-vars */
 
   // Live clock
   useEffect(() => {
@@ -414,6 +415,7 @@ const SimpleAdminDashboard = () => {
   const [contactsSortDir, setContactsSortDir] = useState('desc'); // 'asc' | 'desc'
 
   // Fetch users on component mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (user && (user.userType === 'admin' || user.userType === 'super-admin')) {
       const timer = setTimeout(() => {
@@ -425,6 +427,7 @@ const SimpleAdminDashboard = () => {
   }, [user]);
 
   // Fetch all transactions when Payments section is opened by a super-admin
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (user?.userType === 'super-admin' && activeSection === 'payments') {
       fetchTransactions();
@@ -432,6 +435,7 @@ const SimpleAdminDashboard = () => {
   }, [activeSection, user]);
 
   // Fetch all referrals when Referrals section is opened by admin or super-admin
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if ((user?.userType === 'admin' || user?.userType === 'super-admin') && activeSection === 'referrals') {
       fetchAllReferrals();
@@ -439,6 +443,7 @@ const SimpleAdminDashboard = () => {
   }, [activeSection, user]);
 
   // Fetch all inquiries when Inquiries section is opened by admin or super-admin
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if ((user?.userType === 'admin' || user?.userType === 'super-admin') && activeSection === 'inquiries') {
       fetchAllContacts();
@@ -446,6 +451,7 @@ const SimpleAdminDashboard = () => {
   }, [activeSection, user]);
 
   // Fetch newsletters when Newsletters section is opened
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if ((user?.userType === 'admin' || user?.userType === 'super-admin') && activeSection === 'newsletters') {
       fetchAllNewsletters();
@@ -453,6 +459,7 @@ const SimpleAdminDashboard = () => {
   }, [activeSection, user]);
 
   // Ensure users are available when opening Rewards section
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if ((user?.userType === 'admin' || user?.userType === 'super-admin') && activeSection === 'rewards') {
       if (!Array.isArray(users) || users.length === 0) {
@@ -1171,6 +1178,7 @@ const SimpleAdminDashboard = () => {
     </div>
   );
 
+  /* eslint-disable no-unused-vars */
   const renderCertifications = () => (
     <div className="content-section bg-white rounded-2xl shadow border border-gray-100 p-5">
       <div className="section-header border-b pb-3 mb-4">

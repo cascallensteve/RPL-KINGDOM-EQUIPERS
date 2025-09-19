@@ -1,3 +1,9 @@
+// DEPRECATED: This module is no longer used. Referral codes are generated and managed by the backend.
+// Do NOT import from this file. It remains only to avoid breaking imports during refactors.
+// Please use `user.referral_code` from authenticated user data and backend referral endpoints.
+//
+// If you find usages of these helpers, replace them with backend-driven logic.
+// You can safely delete this file once you confirm there are no imports.
 // Generate a random referral code
 const generateReferralCode = () => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';

@@ -75,7 +75,7 @@ const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles = null })
 // Payment Route Component that redirects if payment is already completed
 const ProtectedPaymentRoute = ({ children }) => {
   const { user } = useAuth();
-  const paymentCompleted = localStorage.getItem('payment_completed') === 'true' || user?.has_paid;
+  const paymentCompleted = (user?.id ? localStorage.getItem(`payment_completed_${user.id}`) === 'true' : false) || !!user?.has_paid;
 
   if (paymentCompleted) {
     console.log('Payment already completed, redirecting to dashboard');
@@ -87,6 +87,39 @@ const ProtectedPaymentRoute = ({ children }) => {
       {children}
     </ProtectedRoute>
   );
+};
+
+// Referral-only route: restricts access to routes that require completed payment
+// Usage example for future routes:
+// <Route path="/my-referrals" element={<ReferralOnlyRoute><MyReferralsPage /></ReferralOnlyRoute>} />
+const ReferralOnlyRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        fontSize: '18px',
+        color: '#28a745'
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!user?.has_paid) {
+    // If not paid, send them to payment page to complete registration first
+    return <Navigate to="/payment" replace />;
+  }
+
+  return children;
 };
 
 function App() {

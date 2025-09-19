@@ -261,6 +261,13 @@ const SignUpPage = () => {
       if (response.message && response.user) {
         
         setSuccess(response.message);
+
+        // Clear any stale local payment flags from previous sessions/users
+        try {
+          localStorage.removeItem('payment_completed');
+          localStorage.removeItem('payment_receipt');
+          localStorage.removeItem('payment_deferred');
+        } catch (_) {}
         
         // Store user email temporarily for email verification (prefer backend value)
         try {

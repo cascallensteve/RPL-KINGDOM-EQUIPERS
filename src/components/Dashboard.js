@@ -31,9 +31,9 @@ const Dashboard = () => {
   useEffect(() => {
     const checkPaymentStatus = async () => {
       try {
-        // Check local storage first for quick access
-        const paymentCompleted = localStorage.getItem('payment_completed') === 'true';
-        
+        // Check local storage first for quick access (scoped per user)
+        const localKey = user?.id ? `payment_completed_${user.id}` : null;
+        const paymentCompleted = localKey ? localStorage.getItem(localKey) === 'true' : false;
         if (paymentCompleted) {
           setPaymentStatus('completed');
           return;
@@ -44,7 +44,9 @@ const Dashboard = () => {
           const response = await authAPI.getUserPaymentStatus(user.id);
           if (response?.has_paid) {
             setPaymentStatus('completed');
-            localStorage.setItem('payment_completed', 'true');
+            try {
+              if (user?.id) localStorage.setItem(`payment_completed_${user.id}`, 'true');
+            } catch (_) {}
             updateUser({ ...user, has_paid: true });
             return;
           }
@@ -562,6 +564,11 @@ const Dashboard = () => {
         {/* Referral Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-2">
+            {!user?.has_paid && (
+              <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800 p-3 text-sm">
+                Referrals are locked until payment is completed.
+              </div>
+            )}
             <ReferralCard />
           </div>
           <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-sm p-6 border border-purple-100">

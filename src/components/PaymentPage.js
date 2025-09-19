@@ -53,8 +53,15 @@ const PaymentPage = () => {
         setSuccess(`🎉 Payment Successful! Receipt: ${data.receipt || 'N/A'}`);
         
         // Update user's payment status in local storage and context
-        localStorage.setItem('payment_completed', 'true');
-        localStorage.setItem('payment_receipt', data.receipt || '');
+        try {
+          if (user?.id) {
+            localStorage.setItem(`payment_completed_${user.id}`, 'true');
+          }
+          localStorage.setItem('payment_receipt', data.receipt || '');
+          // Clean up any stale global flags
+          localStorage.removeItem('payment_completed');
+          localStorage.removeItem('payment_deferred');
+        } catch (_) {}
         
         // Update user context
         updateUser({ ...user, has_paid: true });
