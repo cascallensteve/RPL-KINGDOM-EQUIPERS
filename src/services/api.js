@@ -25,6 +25,9 @@ api.interceptors.request.use((config) => {
   let token = localStorage.getItem('rpl_token');
   const user = localStorage.getItem('rpl_user');
   const userData = user ? JSON.parse(user) : null;
+
+  // Allow opting out of auth header for public endpoints
+  const skipAuth = !!(config.headers && (config.headers['X-Skip-Auth'] === true || config.headers['X-Skip-Auth'] === 'true'));
   
   // Clean token if it has quotes around it
   if (token && token.startsWith('"') && token.endsWith('"')) {
@@ -36,20 +39,19 @@ api.interceptors.request.use((config) => {
     url: config.url, 
     token: token ? `${token.substring(0, 20)}...` : 'No token',
     userType: userData?.userType,
-    hasAuthHeader: !!config.headers.Authorization
+    hasAuthHeader: !!config.headers.Authorization,
+    skipAuth
   });
   
- if (token) {
-  // Always use Django/DRF style "Token <token>"
-  if (!token.startsWith('Token ')) {
-    config.headers.Authorization = `Token ${token}`;
-  } else {
-    config.headers.Authorization = token;
+  if (!skipAuth && token) {
+    // Prefer DRF Token scheme by default; preserve explicit prefixes if present
+    const hasPrefix = token.startsWith('Bearer ') || token.startsWith('Token ');
+    config.headers.Authorization = hasPrefix ? token : `Token ${token}`;
+    console.log('✅ Authorization header added (scheme):', String(config.headers.Authorization).split(' ')[0]);
+  } else if (skipAuth && config.headers.Authorization) {
+    delete config.headers.Authorization;
   }
-  console.log('✅ Authorization header added (scheme):', String(config.headers.Authorization).split(' ')[0]);
- }
 
-  
   // Ensure we have proper headers
   config.headers['Content-Type'] = config.headers['Content-Type'] || 'application/json';
   config.headers['Accept'] = config.headers['Accept'] || 'application/json';
@@ -99,19 +101,42 @@ export const authAPI = {
   // Sign up user
   signUp: async (userData) => {
     try {
-      const dataToSend = {
-        ...userData,
+      // Normalize age: if it's a range like "26-35", parseInt will give 26 which backend accepts
+      const base = {
+        username: userData.username,
+        email: userData.email,
+        password: userData.password,
+        confirmPassword: userData.confirmPassword,
         age: parseInt(userData.age, 10),
+        gender: userData.gender,
         phone_no: userData.phone_no,
-        referral_code: userData.referralCode || null, // Add referral code to the request
+        county: userData.county,
+        subcounty: userData.subcounty || null,
       };
+
+      // Only include referrer_code if provided and non-empty (do NOT set user's own referral_code)
+      const dataToSend = { ...base };
+      if (userData.referralCode && String(userData.referralCode).trim().length > 0) {
+        dataToSend.referrer_code = String(userData.referralCode).trim();
+      }
       
       console.log('Sending signup data:', dataToSend);
       const response = await api.post('/signUp', dataToSend);
       return response.data;
     } catch (error) {
-      console.error('Signup error:', error.response?.data || error.message);
-      throw error.response?.data || error.message;
+      const resp = error.response?.data;
+      console.error('Signup error:', resp || error.message);
+      // Prefer readable messages
+      if (resp && typeof resp === 'object') {
+        const fieldErrors = [];
+        for (const [key, val] of Object.entries(resp)) {
+          if (Array.isArray(val)) fieldErrors.push(`${key}: ${val.join(', ')}`);
+          else if (typeof val === 'string') fieldErrors.push(`${key}: ${val}`);
+        }
+        const message = fieldErrors.length ? fieldErrors.join(' | ') : (resp.detail || 'Registration failed');
+        throw { message, ...resp };
+      }
+      throw error.response?.data || { message: error.message };
     }
   },
 
@@ -221,6 +246,40 @@ export const authAPI = {
   },
 };
 
+// ================== CONTACT / INQUIRIES API ==================
+export const contactAPI = {
+  // Public: Send contact message
+  sendContact: async ({ full_name, email, phone_number, subject, message }) => {
+    try {
+      const payload = { full_name, email, phone_number, subject, message };
+      const response = await api.post('/newsletters/contact-us', payload);
+      return response.data; // { message, contact }
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Admin/Superadmin: View all contacts
+  getAllContacts: async () => {
+    try {
+      const response = await api.get('/newsletters/all-contacts');
+      return response.data; // { message, contacts: [] }
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Admin: View contact details
+  getContactDetails: async (contactId) => {
+    try {
+      const response = await api.get(`/newsletters/contact-details/${contactId}/`);
+      return response.data; // { message, contact }
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+};
+
 // ================== ADMIN API ==================
 export const adminAPI = {
   // Get all users
@@ -313,6 +372,63 @@ export const adminAPI = {
     try {
       const response = await api.get(`/referrals/referral-details/${referralId}/`);
       return response.data; // { message, referral: {...} }
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+};
+
+// ================== NEWSLETTER API ==================
+export const newsletterAPI = {
+  // Public subscribe to newsletter
+  subscribe: async (email) => {
+    try {
+      // Include both keys for compatibility with different backends
+      const payload = { email, subscriber_email: email };
+      const response = await api.post('/newsletters/subscribe', payload, {
+        headers: { 'X-Skip-Auth': 'true' },
+      });
+      return response.data; // { message }
+    } catch (error) {
+      // Surface backend validation details when present
+      const resp = error.response?.data;
+      if (resp && typeof resp === 'object') {
+        const msgs = [];
+        for (const [k, v] of Object.entries(resp)) {
+          if (Array.isArray(v)) msgs.push(`${k}: ${v.join(', ')}`);
+          else if (typeof v === 'string') msgs.push(`${k}: ${v}`);
+        }
+        if (msgs.length) throw { message: msgs.join(' | '), ...resp };
+      }
+      throw error.response?.data || { message: error.message };
+    }
+  },
+
+  // Admin: send newsletter to subscribers
+  sendNewsletter: async ({ subject, body }) => {
+    try {
+      const response = await api.post('/newsletters/send-newsletter', { subject, body });
+      return response.data; // { message }
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Admin: fetch all newsletters
+  getAllNewsletters: async () => {
+    try {
+      const response = await api.get('/newsletters/all-newsletters');
+      return response.data; // { message, Newsletters: [...] }
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Admin: fetch newsletter details
+  getNewsletterDetail: async (newsletterId) => {
+    try {
+      const response = await api.get(`/newsletters/newsletter-detail/${newsletterId}/`);
+      return response.data; // { message, Newsletter }
     } catch (error) {
       throw error.response?.data || error.message;
     }

@@ -46,6 +46,21 @@ const SignUpPage = () => {
   });
   const [filteredSubcounties, setFilteredSubcounties] = useState([]);
 
+  // Persist referral code from URL so it's not lost during navigation
+  useEffect(() => {
+    const ref = getReferralCodeFromURL();
+    if (ref && ref.trim().length > 0) {
+      try {
+        localStorage.setItem('pendingReferral', ref.trim());
+      } catch {}
+      setFormData(prev => (
+        prev.referralCode && prev.referralCode.trim().length > 0
+          ? prev
+          : { ...prev, referralCode: ref.trim() }
+      ));
+    }
+  }, []);
+
   // All 47 Kenyan Counties with their subcounties
   const countiesWithSubcounties = useMemo(() => ({
     'Mombasa': ['Changamwe', 'Jomvu', 'Kisauni', 'Likoni', 'Mvita', 'Nyali'],

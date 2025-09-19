@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FiMail, FiPhone, FiMapPin, FiSend, FiChevronDown } from 'react-icons/fi';
+import { contactAPI } from '../services/api';
 
 const faqs = [
   {
@@ -21,10 +22,11 @@ const faqs = [
 ];
 
 const ContactPage = () => {
-  const [form, setForm] = useState({ name: '', email: '', message: '' });
+  const [form, setForm] = useState({ full_name: '', email: '', phone_number: '', subject: '', message: '' });
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState(null); // { type: 'success' | 'error', message: string }
   const [openIndex, setOpenIndex] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -36,13 +38,18 @@ const ContactPage = () => {
     setSending(true);
     setStatus(null);
     try {
-      // Placeholder: wire to backend endpoint if available, e.g. POST /contact
-      // await api.post('/contact', form)
-      await new Promise((res) => setTimeout(res, 800));
-      setStatus({ type: 'success', message: 'Thanks! Your message has been sent. We will get back to you shortly.' });
-      setForm({ name: '', email: '', message: '' });
+      const resp = await contactAPI.sendContact({
+        full_name: form.full_name,
+        email: form.email,
+        phone_number: form.phone_number,
+        subject: form.subject,
+        message: form.message,
+      });
+      setStatus({ type: 'success', message: resp?.message || 'Thanks! Your message has been sent. We will get back to you shortly.' });
+      setSubmitted(true);
     } catch (err) {
-      setStatus({ type: 'error', message: 'Failed to send message. Please try again later or use the email/phone below.' });
+      const em = err?.detail || err?.message || 'Failed to send message. Please try again later or use the email/phone below.';
+      setStatus({ type: 'error', message: em });
     } finally {
       setSending(false);
     }
@@ -111,63 +118,109 @@ const ContactPage = () => {
             </div>
           </div>
 
-          {/* Contact Form */}
+          {/* Contact Form / Success */}
           <div className="lg:col-span-2 bg-white rounded-2xl shadow p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Send a Message</h2>
-            {status && (
-              <div className={`mb-4 rounded-lg border px-4 py-3 ${
-                status.type === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'
-              }`}>
-                {status.message}
+            {submitted ? (
+              <div className="text-center py-8">
+                <div className="mx-auto mb-3 w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                  <span className="material-icons text-green-600" style={{fontSize:'32px'}}>check_circle</span>
+                </div>
+                <h3 className="text-2xl font-semibold text-gray-900 mb-2">Message Sent Successfully</h3>
+                <p className="text-gray-600 max-w-xl mx-auto mb-6">{status?.message || 'Thanks! Your message has been sent. We will get back to you shortly.'}</p>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => { setSubmitted(false); setForm({ full_name: '', email: '', phone_number: '', subject: '', message: '' }); setStatus(null); }}
+                    className="inline-flex items-center rounded-lg bg-blue-600 text-white px-6 py-3 font-semibold hover:bg-blue-700 transition"
+                  >
+                    Send Another Message
+                  </button>
+                  <a href="/" className="inline-flex items-center rounded-lg border border-gray-300 text-gray-700 px-6 py-3 font-semibold hover:bg-gray-50 transition">
+                    Go to Home
+                  </a>
+                </div>
               </div>
+            ) : (
+              <>
+                {status && status.type === 'error' && (
+                  <div className="mb-4 rounded-lg border px-4 py-3 border-red-200 bg-red-50 text-red-800">
+                    {status.message}
+                  </div>
+                )}
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      name="full_name"
+                      value={form.full_name}
+                      onChange={handleChange}
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Your full name"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={form.email}
+                        onChange={handleChange}
+                        required
+                        className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                      <input
+                        type="tel"
+                        name="phone_number"
+                        value={form.phone_number}
+                        onChange={handleChange}
+                        className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="07XXXXXXXX"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                    <input
+                      type="text"
+                      name="subject"
+                      value={form.subject}
+                      onChange={handleChange}
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="What is this about?"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                    <textarea
+                      name="message"
+                      rows={5}
+                      value={form.message}
+                      onChange={handleChange}
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="How can we help?"
+                    />
+                  </div>
+                  <div>
+                    <button
+                      type="submit"
+                      disabled={sending}
+                      className="inline-flex items-center rounded-lg bg-blue-600 text-white px-6 py-3 font-semibold hover:bg-blue-700 transition disabled:opacity-60"
+                    >
+                      {sending ? 'Sending...' : (<><FiSend className="mr-2"/> Send Message</>)}
+                    </button>
+                  </div>
+                </form>
+              </>
             )}
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Your full name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="you@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                <textarea
-                  name="message"
-                  rows={5}
-                  value={form.message}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="How can we help?"
-                />
-              </div>
-              <div>
-                <button
-                  type="submit"
-                  disabled={sending}
-                  className="inline-flex items-center rounded-lg bg-blue-600 text-white px-6 py-3 font-semibold hover:bg-blue-700 transition disabled:opacity-60"
-                >
-                  {sending ? 'Sending...' : (<><FiSend className="mr-2"/> Send Message</>)}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       </section>

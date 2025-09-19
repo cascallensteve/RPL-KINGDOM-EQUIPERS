@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { authAPI } from '../services/api';
+import { authAPI, newsletterAPI } from '../services/api';
 
 // Import icons
 import { 
@@ -23,6 +23,9 @@ const Dashboard = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [now, setNow] = useState(new Date());
+  const [subscribeEmail, setSubscribeEmail] = useState('');
+  const [subscribing, setSubscribing] = useState(false);
+  const [subscribeStatus, setSubscribeStatus] = useState(null); // {type,message}
   
 
   useEffect(() => {
@@ -62,7 +65,7 @@ const Dashboard = () => {
         setPaymentStatus('pending');
       }
     };
-    
+
     checkPaymentStatus();
 
     // Initialize profile data with only registration fields
@@ -78,6 +81,13 @@ const Dashboard = () => {
       });
     }
   }, [user, navigate, updateUser]);
+
+  // Keep subscribeEmail in sync when user changes
+  useEffect(() => {
+    if (user?.email) {
+      setSubscribeEmail(user.email);
+    }
+  }, [user]);
 
   // Keep a live clock (update every second)
   useEffect(() => {
@@ -154,6 +164,26 @@ const Dashboard = () => {
     }));
   };
 
+  // Newsletter Subscribe (component scope)
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    setSubscribeStatus(null);
+    const email = (subscribeEmail || '').trim();
+    if (!email) {
+      setSubscribeStatus({ type: 'error', message: 'Please enter your email.' });
+      return;
+    }
+    try {
+      setSubscribing(true);
+      const resp = await newsletterAPI.subscribe(email);
+      setSubscribeStatus({ type: 'success', message: resp?.message || 'Subscribed successfully!' });
+    } catch (err) {
+      setSubscribeStatus({ type: 'error', message: err?.detail || err?.message || 'Subscription failed. Please try again.' });
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -197,6 +227,38 @@ const Dashboard = () => {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Newsletter Subscribe */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+          <div className="flex items-center mb-4">
+            <div className="p-2 bg-green-100 rounded-lg mr-3">
+              <FiMail className="h-6 w-6 text-green-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Subscribe to our Newsletter</h3>
+          </div>
+          {subscribeStatus && (
+            <div className={`mb-3 rounded-lg border px-4 py-3 ${subscribeStatus.type==='success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
+              {subscribeStatus.message}
+            </div>
+          )}
+          <form onSubmit={handleSubscribe} className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input
+              type="email"
+              value={subscribeEmail}
+              onChange={(e)=>setSubscribeEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="md:col-span-2 w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+            <button
+              type="submit"
+              disabled={subscribing}
+              className="inline-flex items-center justify-center rounded-lg bg-green-600 text-white px-6 py-3 font-semibold hover:bg-green-700 transition disabled:opacity-60"
+            >
+              {subscribing ? 'Subscribing...' : 'Subscribe'}
+            </button>
+          </form>
         </div>
 
         {/* Profile Content */}

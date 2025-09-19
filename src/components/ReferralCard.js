@@ -25,6 +25,8 @@ const ReferralCard = () => {
     setReferralCount(userReferrals.length);
   }, []);
 
+
+  // hapa shida iko 
   const generateReferralCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
@@ -103,10 +105,13 @@ const ReferralCard = () => {
             onClick={copyToClipboard}
             className="flex-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
+          
             <FiCopy className="mr-2 h-4 w-4" />
             {copied ? 'Copied!' : 'Copy Link'}
           </button>
-          
+        
+
+
           <button
             onClick={shareLink}
             className="flex-1 flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

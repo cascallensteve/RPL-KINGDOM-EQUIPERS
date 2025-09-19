@@ -3275,3 +3275,305 @@
   transform: none !important;
   box-shadow: none !important;
 }
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  /* Stack header content and reduce padding */
+  .admin-header .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 0 1rem;
+  }
+
+  .admin-content {
+    padding: 1rem;
+  }
+
+  .admin-tabs {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tab-btn {
+    padding: 8px 12px;
+    font-size: 0.95rem;
+  }
+
+  .payment-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .recent-payments {
+    padding: 16px;
+  }
+
+  .payments-section {
+    padding: 12px;
+  }
+
+  .payments-table-container {
+    margin: 10px -8px 0;
+    padding: 0 8px;
+  }
+
+  .payments-table th,
+  .payments-table td {
+    padding: 8px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+}
+
+/* Ultra-small screens: hide less critical payment columns */
+@media (max-width: 480px) {
+  /* Hide: Checkout Request ID (2), Phone (4), Date (6) */
+  .payments-table th:nth-child(2),
+  .payments-table td:nth-child(2),
+  .payments-table th:nth-child(4),
+  .payments-table td:nth-child(4),
+  .payments-table th:nth-child(6),
+  .payments-table td:nth-child(6) {
+    display: none;
+  }
+
+  .tab-btn {
+    padding: 6px 10px;
+    font-size: 0.9rem;
+  }
+}
+
+/* Utility classes for SimpleAdminDashboard shared styling */
+.content-section {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.filter-input {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.35);
+}
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-action:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.25);
+}
+
+.btn-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-cancel {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #e5e7eb;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.btn-cancel:hover {
+  background: #d1d5db;
+  color: #111827;
+  transform: translateY(-1px);
+}
+
+/* Modal container used across sections */
+.client-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.15);
+  max-width: 900px;
+  width: 95%;
+  margin: 40px auto;
+  overflow: hidden;
+}
+
+.client-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+@media (max-width: 768px) {
+  .client-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detail-section {
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.detail-section.full-width {
+  grid-column: 1 / -1;
+}
+
+.detail-section h4 {
+  margin: 0 0 10px 0;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row label {
+  color: #6b7280;
+  min-width: 120px;
+}
+
+.detail-row span {
+  color: #111827;
+  font-weight: 500;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ========== Green Brand: Sidebar & Navigation (SimpleAdminDashboard) ========== */
+.admin-sidebar {
+  background: linear-gradient(165deg, #065f46 0%, #0ea5a3 100%);
+  color: #ecfdf5;
+}
+
+.admin-sidebar .profile-avatar {
+  background: #10b981;
+  color: #064e3b;
+}
+
+.admin-sidebar .avatar-icon {
+  font-size: 28px;
+}
+
+.admin-sidebar .profile-info h3 {
+  margin: 0 0 4px 0;
+  font-weight: 700;
+}
+
+.admin-sidebar .profile-info p {
+  margin: 0 0 8px 0;
+  font-size: 0.85rem;
+  color: #d1fae5;
+}
+
+.admin-sidebar .profile-role {
+  background: rgba(255, 255, 255, 0.15);
+  color: #a7f3d0 !important;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+
+.admin-nav .nav-icon {
+  font-size: 20px;
+}
+
+.admin-nav .nav-label {
+  font-weight: 600;
+}
+
+.admin-nav li {
+  list-style: none;
+}
+
+.admin-nav li button {
+  color: #ecfdf5;
+  border-radius: 10px;
+}
+
+.admin-nav li:hover button {
+  background: rgba(255,255,255,0.10);
+}
+
+/* Active state (when React adds bg-white/15 etc.) ensure readable */
+.admin-nav li[class*="bg-white"] button,
+.admin-nav li.active button {
+  color: #ffffff;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.15);
+}
+
+.btn-logout-sidebar {
+  background: rgba(220,38,38,0.12);
+  color: #fecaca;
+  border: 1px solid rgba(248,113,113,0.35);
+}
+
+.btn-logout-sidebar:hover {
+  background: rgba(220,38,38,0.18);
+}
+
+/* Header refinement: keep green brand and ensure it doesn't visually clash */
+.admin-main .admin-header {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-bottom: 1px solid rgba(16,185,129,0.25);
+}
+
+.admin-main .header-content h1,
+.admin-main .header-content .text-gray-500,
+.admin-main .header-content .material-icons {
+  color: #0b3b2c;
+}
+
+.admin-main .date-time-pill {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.admin-status {
+  background: #d1fae5 !important;
+  color: #065f46 !important;
+}
+
+/* Ensure content has breathing room below sticky header */
+.content-wrapper {
+  padding-top: 12px;
+}
