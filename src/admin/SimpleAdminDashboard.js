@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI, contactAPI, newsletterAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -56,8 +56,8 @@ const SimpleAdminDashboard = () => {
   const [showNlModal, setShowNlModal] = useState(false);
   const [selectedNewsletter, setSelectedNewsletter] = useState(null);
 
-  // Helper: add activity to notifications
-  const addActivity = (title, message, type = 'info') => {
+  // Helper: add activity to notifications (memoized for dependency-safe callbacks)
+  const addActivity = useCallback((title, message, type = 'info') => {
     const item = {
       id: Date.now() + Math.random(),
       title,
@@ -66,10 +66,10 @@ const SimpleAdminDashboard = () => {
       time: new Date().toLocaleString(),
     };
     setNotifications(prev => [item, ...prev].slice(0, 50));
-  };
+  }, []);
 
   // Newsletters logic
-  const fetchAllNewsletters = async () => {
+  const fetchAllNewsletters = useCallback(async () => {
     if (nlLoading) return;
     setNlLoading(true);
     setNlError('');
@@ -84,7 +84,7 @@ const SimpleAdminDashboard = () => {
     } finally {
       setNlLoading(false);
     }
-  };
+  }, [nlLoading, addActivity]);
 
   const sendNewsletter = async (e) => {
     e.preventDefault();
@@ -424,7 +424,7 @@ const SimpleAdminDashboard = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [user]);
+  }, [user, fetchUsers]);
 
   // Fetch all transactions when Payments section is opened by a super-admin
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -432,7 +432,7 @@ const SimpleAdminDashboard = () => {
     if (user?.userType === 'super-admin' && activeSection === 'payments') {
       fetchTransactions();
     }
-  }, [activeSection, user]);
+  }, [activeSection, user, fetchTransactions]);
 
   // Fetch all referrals when Referrals section is opened by admin or super-admin
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -440,7 +440,7 @@ const SimpleAdminDashboard = () => {
     if ((user?.userType === 'admin' || user?.userType === 'super-admin') && activeSection === 'referrals') {
       fetchAllReferrals();
     }
-  }, [activeSection, user]);
+  }, [activeSection, user, fetchAllReferrals]);
 
   // Fetch all inquiries when Inquiries section is opened by admin or super-admin
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -448,7 +448,7 @@ const SimpleAdminDashboard = () => {
     if ((user?.userType === 'admin' || user?.userType === 'super-admin') && activeSection === 'inquiries') {
       fetchAllContacts();
     }
-  }, [activeSection, user]);
+  }, [activeSection, user, fetchAllContacts]);
 
   // Fetch newsletters when Newsletters section is opened
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -456,7 +456,7 @@ const SimpleAdminDashboard = () => {
     if ((user?.userType === 'admin' || user?.userType === 'super-admin') && activeSection === 'newsletters') {
       fetchAllNewsletters();
     }
-  }, [activeSection, user]);
+  }, [activeSection, user, fetchAllNewsletters]);
 
   // Ensure users are available when opening Rewards section
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -466,7 +466,7 @@ const SimpleAdminDashboard = () => {
         fetchUsers();
       }
     }
-  }, [activeSection, user]);
+  }, [activeSection, user, users, fetchUsers]);
 
   // Demo realtime notifications (replace with websocket later)
   useEffect(() => {
@@ -486,7 +486,7 @@ const SimpleAdminDashboard = () => {
     return () => clearInterval(id);
   }, [user]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -500,9 +500,9 @@ const SimpleAdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addActivity]);
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     if (txLoading) return;
     setTxLoading(true);
     setTxError('');
@@ -518,7 +518,7 @@ const SimpleAdminDashboard = () => {
     } finally {
       setTxLoading(false);
     }
-  };
+  }, [txLoading, addActivity]);
 
   const viewTransactionDetails = async (txId) => {
     if (!txId) return;
@@ -554,7 +554,7 @@ const SimpleAdminDashboard = () => {
     }
   };
 
-  const fetchAllReferrals = async () => {
+  const fetchAllReferrals = useCallback(async () => {
     if (referralsLoading) return;
     setReferralsLoading(true);
     setReferralsError('');
@@ -571,7 +571,7 @@ const SimpleAdminDashboard = () => {
     } finally {
       setReferralsLoading(false);
     }
-  };
+  }, [referralsLoading, addActivity]);
 
   const viewReferralDetails = async (refId) => {
     if (!refId) return;
@@ -750,7 +750,7 @@ const SimpleAdminDashboard = () => {
     }
   };
 
-  const fetchAllContacts = async () => {
+  const fetchAllContacts = useCallback(async () => {
     if (contactsLoading) return;
     setContactsLoading(true);
     setContactsError('');
@@ -765,7 +765,7 @@ const SimpleAdminDashboard = () => {
     } finally {
       setContactsLoading(false);
     }
-  };
+  }, [contactsLoading, addActivity]);
 
   const viewContact = async (contactId) => {
     if (!contactId) return;

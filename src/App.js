@@ -71,6 +71,7 @@ const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles = null })
   console.log('Access granted');
   return children;
 };
+/* eslint-enable no-unused-vars */
 
 // Payment Route Component that redirects if payment is already completed
 const ProtectedPaymentRoute = ({ children }) => {
@@ -92,6 +93,7 @@ const ProtectedPaymentRoute = ({ children }) => {
 // Referral-only route: restricts access to routes that require completed payment
 // Usage example for future routes:
 // <Route path="/my-referrals" element={<ReferralOnlyRoute><MyReferralsPage /></ReferralOnlyRoute>} />
+/* eslint-disable no-unused-vars */
 const ReferralOnlyRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
