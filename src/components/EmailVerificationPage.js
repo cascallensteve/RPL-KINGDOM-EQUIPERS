@@ -17,7 +17,8 @@ const EmailVerificationPage = () => {
 
   useEffect(() => {
     // Prefer logged-in user's email; fallback to stored email
-    const preferred = (user?.email || localStorage.getItem('temp_user_email') || '').trim().toLowerCase();
+    // Prefer the email captured during signup to avoid using inviter's email if they are logged in
+    const preferred = (localStorage.getItem('temp_user_email') || user?.email || '').trim().toLowerCase();
     if (preferred) {
       setEmail(preferred);
       try {

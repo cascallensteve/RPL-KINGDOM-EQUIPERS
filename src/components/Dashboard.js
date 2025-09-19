@@ -33,15 +33,9 @@ const Dashboard = () => {
       try {
         // Check local storage first for quick access
         const paymentCompleted = localStorage.getItem('payment_completed') === 'true';
-        const paymentDeferred = localStorage.getItem('payment_deferred') === 'true';
         
         if (paymentCompleted) {
           setPaymentStatus('completed');
-          return;
-        }
-        
-        if (paymentDeferred) {
-          setPaymentStatus('deferred');
           return;
         }
         
@@ -56,8 +50,8 @@ const Dashboard = () => {
           }
         }
         
-        // If we get here, payment is required
-        navigate('/payment');
+        // If we get here, payment is required; show pending status and prompt instead of redirect
+        setPaymentStatus('pending');
         
       } catch (error) {
         console.error('Error checking payment status:', error);

@@ -31,6 +31,12 @@ const PaymentPage = () => {
     setError('');
   };
 
+  // Allow user to continue and pay later; do not mark as paid or set deferred flags
+  const handlePayLater = () => {
+    setSuccess('You can complete payment anytime from your dashboard.');
+    setTimeout(() => navigate('/dashboard'), 800);
+  };
+
   const checkTransactionStatus = useCallback(async (requestId) => {
     try {
       setStatusChecking(true);
@@ -151,13 +157,6 @@ const PaymentPage = () => {
     }
   };
 
-  const handlePayLater = () => {
-    setSuccess('Payment deferred. Redirecting to dashboard...');
-    setPaymentStatus('deferred');
-    localStorage.setItem('payment_deferred', 'true');
-    setTimeout(() => navigate('/dashboard'), 2000);
-  };
-
   if (!user) return <div>Loading...</div>;
 
   return (
@@ -271,15 +270,6 @@ const PaymentPage = () => {
             </div>
           )}
 
-          {paymentStatus === 'deferred' && (
-            <div className="payment-status info">
-              <div className="info-icon">⏰</div>
-              <div className="info-content">
-                <h3>Payment Deferred</h3>
-                <p>You can complete payment later from your dashboard</p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

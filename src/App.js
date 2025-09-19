@@ -65,6 +65,9 @@ const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles = null })
     return <Navigate to="/admin-dashboard" replace />;
   }
 
+  // Note: Unpaid users are allowed to access dashboard and see a payment prompt.
+  // We no longer globally redirect unpaid users here to allow a "Pay Later" option.
+
   console.log('Access granted');
   return children;
 };

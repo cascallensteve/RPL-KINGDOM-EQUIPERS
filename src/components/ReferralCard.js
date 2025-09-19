@@ -1,49 +1,55 @@
 import React, { useState, useEffect } from 'react';
 import { FiUsers, FiCopy, FiShare2 } from 'react-icons/fi';
+import { useAuth } from '../context/AuthContext';
+import { adminAPI } from '../services/api';
 
 const ReferralCard = () => {
+  const { user } = useAuth();
   const [copied, setCopied] = useState(false);
   const [referralCode, setReferralCode] = useState('');
   const [referralCount, setReferralCount] = useState(0);
 
   useEffect(() => {
-    // Generate or retrieve referral code from localStorage
-    const storedCode = localStorage.getItem('userReferralCode');
-    if (storedCode) {
-      setReferralCode(storedCode);
-    } else {
-      // Generate a new referral code if none exists
-      const newCode = generateReferralCode();
-      localStorage.setItem('userReferralCode', newCode);
-      setReferralCode(newCode);
+    // Block referral usage for unpaid users
+    if (!user?.has_paid) {
+      setReferralCode('');
+      setReferralCount(0);
+      return;
     }
 
-    // Get referral count from localStorage
-    const referrals = JSON.parse(localStorage.getItem('referralTracking') || '[]');
-    const userCode = localStorage.getItem('userReferralCode');
-    const userReferrals = referrals.filter(ref => ref.code === userCode);
-    setReferralCount(userReferrals.length);
-  }, []);
+    // Use referral code provided by backend via authenticated user
+    const codeFromBackend = user?.referral_code || user?.referralCode || '';
+    setReferralCode(codeFromBackend || '');
+
+    // Fetch real referral count from backend if we have a logged in and paid user
+    const loadReferrals = async () => {
+      try {
+        if (!user?.id) return;
+        const data = await adminAPI.getUserReferrals(user.id);
+        const list = Array.isArray(data?.referrals) ? data.referrals : (Array.isArray(data) ? data : []);
+        setReferralCount(list.length);
+      } catch (err) {
+        console.error('Error loading referral count:', err);
+        setReferralCount(0);
+      }
+    };
+
+    loadReferrals();
+  }, [user]);
 
 
-  // hapa shida iko 
-  const generateReferralCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 8; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  };
+  // Removed local code generation; referral codes come from the backend
 
   const copyToClipboard = () => {
-    const referralLink = `${window.location.origin}/signup?ref=${referralCode}`;
-    navigator.clipboard.writeText(referralLink);
+    if (!referralCode) return;
+    const link = `${window.location.origin}/signup?ref=${referralCode}`;
+    navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const shareLink = async () => {
+    if (!referralCode) return;
     const shareData = {
       title: 'Join me on RPL System',
       text: `Use my referral code ${referralCode} to sign up and get started!`,
@@ -62,7 +68,7 @@ const ReferralCard = () => {
     }
   };
 
-  const referralLink = `${window.location.origin}/signup?ref=${referralCode}`;
+  const referralLink = referralCode ? `${window.location.origin}/signup?ref=${referralCode}` : '';
 
   return (
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm p-6 border border-blue-100">
@@ -76,7 +82,13 @@ const ReferralCard = () => {
           Active
         </div>
       </div>
-      
+
+      {!user?.has_paid && (
+        <div className="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800 p-3 text-sm">
+          Complete your payment to unlock your referral code and start inviting others.
+        </div>
+      )}
+
       <div className="mb-6">
         <p className="text-sm text-gray-600 mb-4">
           Share your referral link with friends and earn rewards when they sign up!
@@ -85,12 +97,13 @@ const ReferralCard = () => {
         <div className="mb-4">
           <div className="flex items-center justify-between bg-white p-2 rounded-lg border border-gray-200">
             <span className="text-sm font-mono text-gray-700 truncate pr-2">
-              {referralLink}
+              {referralLink || (user?.has_paid ? 'Referral link will appear here when available' : 'Referral link locked until payment is completed')}
             </span>
             <button
               onClick={copyToClipboard}
               className="p-2 text-gray-500 hover:text-blue-600 transition-colors"
               title="Copy to clipboard"
+              disabled={!referralCode || !user?.has_paid}
             >
               <FiCopy className="h-4 w-4" />
             </button>
@@ -103,7 +116,8 @@ const ReferralCard = () => {
         <div className="flex space-x-2">
           <button
             onClick={copyToClipboard}
-            className="flex-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="flex-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60"
+            disabled={!referralCode || !user?.has_paid}
           >
           
             <FiCopy className="mr-2 h-4 w-4" />
@@ -114,7 +128,8 @@ const ReferralCard = () => {
 
           <button
             onClick={shareLink}
-            className="flex-1 flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="flex-1 flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60"
+            disabled={!referralCode || !user?.has_paid}
           >
             <FiShare2 className="mr-2 h-4 w-4" />
             Share
@@ -130,7 +145,7 @@ const ReferralCard = () => {
           </div>
           <div className="text-right">
             <p className="text-sm font-medium text-gray-500">Your Code</p>
-            <p className="text-lg font-mono font-bold text-blue-600">{referralCode}</p>
+            <p className="text-lg font-mono font-bold text-blue-600">{user?.has_paid ? (referralCode || '—') : 'Locked'}</p>
           </div>
         </div>
       </div>

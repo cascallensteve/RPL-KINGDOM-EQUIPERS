@@ -32,8 +32,7 @@ const SignUpPage = () => {
     gender: '',
     phone_no: '',
     county: '',
-    subcounty: '',
-    referralCode: getReferralCodeFromURL()
+    subcounty: ''
   }));
   
   const [loading, setLoading] = useState(false);
@@ -46,19 +45,10 @@ const SignUpPage = () => {
   });
   const [filteredSubcounties, setFilteredSubcounties] = useState([]);
 
-  // Persist referral code from URL so it's not lost during navigation
-  useEffect(() => {
+  // Read referral code from URL (no local generation or storage)
+  const urlReferralCode = useMemo(() => {
     const ref = getReferralCodeFromURL();
-    if (ref && ref.trim().length > 0) {
-      try {
-        localStorage.setItem('pendingReferral', ref.trim());
-      } catch {}
-      setFormData(prev => (
-        prev.referralCode && prev.referralCode.trim().length > 0
-          ? prev
-          : { ...prev, referralCode: ref.trim() }
-      ));
-    }
+    return ref ? ref.trim() : '';
   }, []);
 
   // All 47 Kenyan Counties with their subcounties
@@ -264,46 +254,33 @@ const SignUpPage = () => {
 
     // Submit form data
     try {
-      const response = await authAPI.signUp(formData);
+      // Pass URL referral code to backend if present
+      const response = await authAPI.signUp({ ...formData, referralCode: urlReferralCode });
       
       // Handle successful signup
       if (response.message && response.user) {
-        // Process referral if exists
-        const referralCode = formData.referralCode || localStorage.getItem('pendingReferral');
-        if (referralCode) {
-          try {
-            // Get existing referrals or initialize empty array
-            const referrals = JSON.parse(localStorage.getItem('referralTracking') || '[]');
-            
-            // Add new referral
-            referrals.push({
-              code: referralCode,
-              email: formData.email,
-              timestamp: new Date().toISOString()
-            });
-            
-            // Save back to localStorage
-            localStorage.setItem('referralTracking', JSON.stringify(referrals));
-            
-            // Clear pending referral
-            localStorage.removeItem('pendingReferral');
-          } catch (err) {
-            console.error('Error processing referral:', err);
-            // Don't fail the signup if referral processing fails
-          }
-        }
         
         setSuccess(response.message);
         
-        // Store user data temporarily for email verification
-        localStorage.setItem('temp_user_email', formData.email);
+        // Store user email temporarily for email verification (prefer backend value)
+        try {
+          const emailForVerification = (response.user?.email || formData.email || '').trim();
+          if (emailForVerification) {
+            localStorage.setItem('temp_user_email', emailForVerification);
+          }
+        } catch (_) {}
         
-        // If API returns token, log in and go to dashboard; else go to verify-email
+        // If API returns token, log in and route based on payment status; else go to verify-email
         if (response.token) {
           try {
-            login(response.user, response.token);
+            // login(authToken, userData)
+            login(response.token, response.user);
             setTimeout(() => {
-              navigate('/dashboard');
+              if (response.user?.has_paid) {
+                navigate('/dashboard');
+              } else {
+                navigate('/payment');
+              }
             }, 1500);
           } catch (_) {
             // Handle login error if needed
@@ -609,22 +586,6 @@ const SignUpPage = () => {
                   ))}
                 </select>
               </div>
-
-              <div>
-                <label htmlFor="referralCode" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Referral Code (Optional)
-                </label>
-                <input
-                  type="text"
-                  id="referralCode"
-                  name="referralCode"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                  value={formData.referralCode}
-                  onChange={handleChange}
-                  placeholder="Enter referral code if any"
-                />
-                <small className="text-gray-500 text-sm mt-1 block">If someone referred you, enter their code here</small>
-              </div>
             </div>
           </>
         );
@@ -681,6 +642,13 @@ const SignUpPage = () => {
 
           {/* Step Indicator */}
           {renderStepIndicator()}
+
+          {/* Referral info banner (read-only from URL) */}
+          {urlReferralCode && (
+            <div className="mb-4 p-3 rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm">
+              Joining with referral code: <span className="font-semibold">{urlReferralCode}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             {/* Step Content */}
