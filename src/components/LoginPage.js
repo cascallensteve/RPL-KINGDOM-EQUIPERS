@@ -72,14 +72,26 @@ const LoginPage = () => {
       const response = await authAPI.login(formData);
       
       if (response.token && response.user) {
-        localStorage.setItem('rpl_token', response.token);
-        localStorage.setItem('rpl_user', JSON.stringify(response.user));
+        // Validate response data before proceeding
+        if (!response.user.id || !response.user.email) {
+          throw new Error('Invalid user data received from server');
+        }
         
+        console.log('🔐 Login successful, user data:', {
+          id: response.user.id,
+          email: response.user.email,
+          username: response.user.username,
+          userType: response.user.userType,
+          has_paid: response.user.has_paid
+        });
+        
+        // Use the AuthContext login function which handles cleanup
         login(response.token, response.user);
+        
         // Show time-based greeting before redirecting
         setSuccess(`${getGreeting()}, welcome again! Redirecting...`);
 
-        if (response.user.userType === 'admin') {
+        if (response.user.userType === 'admin' || response.user.userType === 'super-admin') {
           setTimeout(() => navigate('/admin-dashboard', { replace: true }), 1200);
         } else {
           if (!response.user.is_email_verified) {
@@ -90,9 +102,37 @@ const LoginPage = () => {
             } catch (_) {}
             setTimeout(() => navigate('/verify-email', { replace: true }), 1200);
           } else {
-            setTimeout(() => navigate('/payment', { replace: true }), 1200);
+            // Route based on payment status
+            console.log('🔐 Payment status check:', {
+              has_paid: response.user?.has_paid,
+              type: typeof response.user?.has_paid,
+              isTrue: response.user?.has_paid === true
+            });
+            
+            // Check both backend and local storage for payment status
+            const backendPaid = response.user?.has_paid === true;
+            const localKey = `payment_completed_${response.user.id}`;
+            const localPaid = localStorage.getItem(localKey) === 'true';
+            
+            console.log('🔐 Payment status sources:', {
+              backend: backendPaid,
+              local: localPaid,
+              localKey: localKey
+            });
+            
+            if (backendPaid || localPaid) {
+              // User has already paid, go directly to dashboard
+              console.log('🔐 User has already paid (backend or local), routing to dashboard');
+              setTimeout(() => navigate('/dashboard', { replace: true }), 1200);
+            } else {
+              // User has not paid, go to payment page
+              console.log('🔐 User has not paid, routing to payment page');
+              setTimeout(() => navigate('/payment', { replace: true }), 1200);
+            }
           }
         }
+      } else {
+        throw new Error('Invalid response from server');
       }
     } catch (err) {
       setError(err.detail || err.message || 'Login failed. Please try again.');

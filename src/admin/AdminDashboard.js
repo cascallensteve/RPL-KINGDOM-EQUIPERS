@@ -32,6 +32,127 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('users');
   const [paymentLoading, setPaymentLoading] = useState(false);
 
+  // Define fetchUsers early to avoid any TDZ issues when referenced in effects
+  const fetchUsers = async () => {
+    setLoading(true);
+    
+    // Get current token and clean it
+    let currentToken = localStorage.getItem('rpl_token');
+    
+    if (!currentToken) {
+      showNotification('No authentication token found. Please log in again.', 'error');
+      setLoading(false);
+      return;
+    }
+    
+    // Clean the token - remove quotes if present
+    if (currentToken.startsWith('"') && currentToken.endsWith('"')) {
+      currentToken = currentToken.slice(1, -1);
+      localStorage.setItem('rpl_token', currentToken); // Save cleaned token
+    }
+    
+    try {
+      console.log('🚀 Fetching users from API...');
+      console.log('🔑 Using token:', currentToken ? `${currentToken.substring(0, 20)}...` : 'No token');
+      console.log('🔑 Full token:', currentToken);
+      console.log('👤 User data:', user);
+      
+      const headers = {
+        'Authorization': `Bearer ${currentToken}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      
+      console.log('📨 Request headers:', headers);
+      
+      const response = await fetch('https://kingdom-equippers-rpl.vercel.app/all-users', {
+        method: 'GET',
+        headers: headers
+      });
+      
+      console.log('🌐 Response status:', response.status);
+      console.log('🌐 Response statusText:', response.statusText);
+      console.log('🌐 Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        // Get error details
+        let errorMessage = `API Error: ${response.status} - ${response.statusText}`;
+        let errorDetails = null;
+        
+        try {
+          const errorText = await response.text();
+          console.log('🚨 Raw error response:', errorText);
+          
+          // Try to parse as JSON
+          try {
+            errorDetails = JSON.parse(errorText);
+            console.log('🚨 Parsed error data:', errorDetails);
+            
+            if (errorDetails.message) {
+              errorMessage = errorDetails.message;
+            } else if (errorDetails.detail) {
+              errorMessage = errorDetails.detail;
+            } else if (errorDetails.error) {
+              errorMessage = errorDetails.error;
+            }
+          } catch (jsonError) {
+            console.log('🚨 Error response is not JSON:', errorText);
+            errorMessage = errorText.substring(0, 200); // Limit length
+          }
+        } catch (e) {
+          console.log('🚨 Could not read error response:', e);
+        }
+        
+        if (response.status === 403) {
+          throw new Error('Access denied. You need admin privileges to view users.');
+        } else if (response.status === 401) {
+          // Clear invalid session
+          localStorage.removeItem('rpl_token');
+          localStorage.removeItem('rpl_user');
+          throw new Error('Authentication failed. Please log in again.');
+        } else {
+          throw new Error(errorMessage);
+        }
+      }
+      
+      const data = await response.json();
+      console.log('✅ Users fetched successfully:', data);
+      
+      const fetchedUsers = data.users || data || [];
+      setUsers(fetchedUsers);
+      
+      showNotification(`Successfully fetched ${fetchedUsers.length} users`, 'success');
+      
+    } catch (error) {
+      console.error('❌ Error fetching users:', error);
+      
+      // Handle different error types
+      let errorMessage = 'Failed to fetch users. Please try again.';
+      
+      if (error.message.includes('Authentication failed')) {
+        errorMessage = 'Session expired. Please log in again.';
+        // Force redirect to login after a short delay
+        setTimeout(() => {
+          logout();
+          navigate('/login', { replace: true });
+        }, 2000);
+      } else if (error.message.includes('Access denied')) {
+        errorMessage = 'Access denied. Admin privileges required.';
+      } else if (error.message.includes('NetworkError') || error.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else {
+        errorMessage = error.message;
+      }
+      
+      showNotification(errorMessage, 'error');
+      
+      // Clear data on error
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Normalize age to age group for display and exports
   const formatAgeGroup = (age) => {
     if (!age && age !== 0) return 'N/A';
@@ -225,125 +346,6 @@ const AdminDashboard = () => {
     return null;
   }
 
-  const fetchUsers = async () => {
-    setLoading(true);
-    
-    // Get current token and clean it
-    let currentToken = localStorage.getItem('rpl_token');
-    
-    if (!currentToken) {
-      showNotification('No authentication token found. Please log in again.', 'error');
-      setLoading(false);
-      return;
-    }
-    
-    // Clean the token - remove quotes if present
-    if (currentToken.startsWith('"') && currentToken.endsWith('"')) {
-      currentToken = currentToken.slice(1, -1);
-      localStorage.setItem('rpl_token', currentToken); // Save cleaned token
-    }
-    
-    try {
-      console.log('🚀 Fetching users from API...');
-      console.log('🔑 Using token:', currentToken ? `${currentToken.substring(0, 20)}...` : 'No token');
-      console.log('🔑 Full token:', currentToken);
-      console.log('👤 User data:', user);
-      
-      const headers = {
-        'Authorization': `Bearer ${currentToken}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      };
-      
-      console.log('📨 Request headers:', headers);
-      
-      const response = await fetch('https://kingdom-equippers-rpl.vercel.app/all-users', {
-        method: 'GET',
-        headers: headers
-      });
-      
-      console.log('🌐 Response status:', response.status);
-      console.log('🌐 Response statusText:', response.statusText);
-      console.log('🌐 Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      if (!response.ok) {
-        // Get error details
-        let errorMessage = `API Error: ${response.status} - ${response.statusText}`;
-        let errorDetails = null;
-        
-        try {
-          const errorText = await response.text();
-          console.log('🚨 Raw error response:', errorText);
-          
-          // Try to parse as JSON
-          try {
-            errorDetails = JSON.parse(errorText);
-            console.log('🚨 Parsed error data:', errorDetails);
-            
-            if (errorDetails.message) {
-              errorMessage = errorDetails.message;
-            } else if (errorDetails.detail) {
-              errorMessage = errorDetails.detail;
-            } else if (errorDetails.error) {
-              errorMessage = errorDetails.error;
-            }
-          } catch (jsonError) {
-            console.log('🚨 Error response is not JSON:', errorText);
-            errorMessage = errorText.substring(0, 200); // Limit length
-          }
-        } catch (e) {
-          console.log('🚨 Could not read error response:', e);
-        }
-        
-        if (response.status === 403) {
-          throw new Error('Access denied. You need admin privileges to view users.');
-        } else if (response.status === 401) {
-          // Clear invalid session
-          localStorage.removeItem('rpl_token');
-          localStorage.removeItem('rpl_user');
-          throw new Error('Authentication failed. Please log in again.');
-        } else {
-          throw new Error(errorMessage);
-        }
-      }
-      
-      const data = await response.json();
-      console.log('✅ Users fetched successfully:', data);
-      
-      const fetchedUsers = data.users || data || [];
-      setUsers(fetchedUsers);
-      
-      showNotification(`Successfully fetched ${fetchedUsers.length} users`, 'success');
-      
-    } catch (error) {
-      console.error('❌ Error fetching users:', error);
-      
-      // Handle different error types
-      let errorMessage = 'Failed to fetch users. Please try again.';
-      
-      if (error.message.includes('Authentication failed')) {
-        errorMessage = 'Session expired. Please log in again.';
-        // Force redirect to login after a short delay
-        setTimeout(() => {
-          logout();
-          navigate('/login', { replace: true });
-        }, 2000);
-      } else if (error.message.includes('Access denied')) {
-        errorMessage = 'Access denied. Admin privileges required.';
-      } else if (error.message.includes('NetworkError') || error.message.includes('fetch')) {
-        errorMessage = 'Network error. Please check your connection and try again.';
-      } else {
-        errorMessage = error.message;
-      }
-      
-      showNotification(errorMessage, 'error');
-      
-      // Clear data on error
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchUserDetails = async (userId) => {
     try {
@@ -437,7 +439,8 @@ const AdminDashboard = () => {
     const user = users.find(u => u.id === userId);
     if (user) {
       setSelectedUser(user);
-      setShowUserModal(true);
+      // Fetch full user details so the modal shows comprehensive info (including subcounty)
+      fetchUserDetails(userId);
     }
   };
 

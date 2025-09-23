@@ -260,6 +260,17 @@ const SignUpPage = () => {
       // Handle successful signup
       if (response.message && response.user) {
         
+        // DEBUG: Log the user data received from backend
+        console.log('🔍 Signup Response - User Data:', {
+          id: response.user.id,
+          email: response.user.email,
+          username: response.user.username,
+          userType: response.user.userType,
+          has_paid: response.user.has_paid,
+          referred_by: response.user.referred_by,
+          referral_code: response.user.referral_code
+        });
+        
         setSuccess(response.message);
 
         // Clear any stale local payment flags from previous sessions/users
@@ -280,16 +291,34 @@ const SignUpPage = () => {
         // If API returns token, log in and route based on payment status; else go to verify-email
         if (response.token) {
           try {
+            console.log('🔐 About to login with user data:', {
+              id: response.user.id,
+              email: response.user.email,
+              username: response.user.username
+            });
+            
             // login(authToken, userData)
             login(response.token, response.user);
+            
+            console.log('🔐 Login completed, routing user...');
+            
             setTimeout(() => {
-              if (response.user?.has_paid) {
+              // Route users based on their payment status
+              if (response.user?.userType === 'admin' || response.user?.userType === 'super-admin') {
+                console.log('🔐 Admin user, routing to admin dashboard');
+                navigate('/admin-dashboard');
+              } else if (response.user?.has_paid === true) {
+                // User has already paid, go directly to dashboard
+                console.log('🔐 User has already paid, routing to dashboard');
                 navigate('/dashboard');
               } else {
+                // User has not paid, go to payment page
+                console.log('🔐 User has not paid, routing to payment page');
                 navigate('/payment');
               }
             }, 1500);
-          } catch (_) {
+          } catch (error) {
+            console.error('🔐 Login error:', error);
             // Handle login error if needed
           }
         } else {

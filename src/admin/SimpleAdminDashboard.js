@@ -55,6 +55,10 @@ const SimpleAdminDashboard = () => {
   const [nlBody, setNlBody] = useState('');
   const [showNlModal, setShowNlModal] = useState(false);
   const [selectedNewsletter, setSelectedNewsletter] = useState(null);
+  const [subscribers, setSubscribers] = useState([]);
+  const [subsLoading, setSubsLoading] = useState(false);
+  const [subsError, setSubsError] = useState('');
+  const [subsNotFound, setSubsNotFound] = useState(false);
 
   // Helper: add activity to notifications (memoized for dependency-safe callbacks)
   const addActivity = useCallback((title, message, type = 'info') => {
@@ -67,6 +71,41 @@ const SimpleAdminDashboard = () => {
     };
     setNotifications(prev => [item, ...prev].slice(0, 50));
   }, []);
+
+  // --- Fetchers placed early to avoid TDZ when referenced in effects/render ---
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await adminAPI.getAllUsers();
+      const fetched = data.users || data || [];
+      setUsers(fetched);
+      addActivity('Users Loaded', `Fetched ${fetched.length} users`, 'success');
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError((err && (err.message || err.detail)) || 'Failed to fetch users');
+    } finally {
+      setLoading(false);
+    }
+  }, [addActivity]);
+
+  const fetchTransactions = useCallback(async () => {
+    if (txLoading) return;
+    setTxLoading(true);
+    setTxError('');
+    try {
+      const data = await adminAPI.getAllTransactions();
+      const list = data.transactions || [];
+      setTransactions(Array.isArray(list) ? list : []);
+      addActivity('Payments Loaded', `Fetched ${Array.isArray(list) ? list.length : 0} transactions`, 'success');
+    } catch (err) {
+      console.error('Error fetching transactions:', err);
+      setTxError((err && (err.message || err.detail)) || 'Failed to fetch transactions');
+      setTransactions([]);
+    } finally {
+      setTxLoading(false);
+    }
+  }, [addActivity]);
 
   // Newsletters logic
   const fetchAllNewsletters = useCallback(async () => {
@@ -84,7 +123,27 @@ const SimpleAdminDashboard = () => {
     } finally {
       setNlLoading(false);
     }
-  }, [nlLoading, addActivity]);
+  }, [addActivity]);
+
+  const fetchSubscribers = useCallback(async () => {
+    // Guard against parallel requests using current state snapshot
+    if (subsLoading) return;
+    setSubsLoading(true);
+    setSubsError('');
+    setSubsNotFound(false);
+    try {
+      const data = await newsletterAPI.getSubscribers();
+      const list = Array.isArray(data?.subscribers) ? data.subscribers : (Array.isArray(data) ? data : []);
+      setSubscribers(list);
+      if (data?.__notFound) setSubsNotFound(true);
+      addActivity('Subscribers Loaded', `Fetched ${list.length} subscribers`, 'success');
+    } catch (err) {
+      setSubsError(err?.message || err?.detail || 'Failed to fetch subscribers');
+      setSubscribers([]);
+    } finally {
+      setSubsLoading(false);
+    }
+  }, [addActivity]);
 
   const sendNewsletter = async (e) => {
     e.preventDefault();
@@ -119,6 +178,10 @@ const SimpleAdminDashboard = () => {
           <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 text-sm bg-white hover:bg-gray-50 disabled:opacity-60" onClick={fetchAllNewsletters} disabled={nlLoading}>
             <span className="material-icons">{nlLoading ? 'hourglass_empty' : 'refresh'}</span>
             {nlLoading ? 'Loading...' : 'Refresh'}
+          </button>
+          <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 text-sm bg-white hover:bg-gray-50 disabled:opacity-60" onClick={fetchSubscribers} disabled={subsLoading}>
+            <span className="material-icons">{subsLoading ? 'hourglass_empty' : 'group'}</span>
+            {subsLoading ? 'Loading Subscribers...' : 'Subscribers'}
           </button>
         </div>
       </div>
@@ -195,6 +258,53 @@ const SimpleAdminDashboard = () => {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Subscribers List */}
+      <div className="mt-6 bg-white rounded-2xl shadow border border-gray-100">
+        <div className="px-4 py-3 border-b flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2"><span className="material-icons">group</span> Subscribers</h3>
+          <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 text-sm bg-white hover:bg-gray-50 disabled:opacity-60" onClick={fetchSubscribers} disabled={subsLoading}>
+            <span className="material-icons">{subsLoading ? 'hourglass_empty' : 'refresh'}</span>
+            {subsLoading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+        {subsNotFound && (
+          <div className="m-4 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 text-sm">
+            Subscribers endpoint is not available on the server. Please confirm the API route for listing newsletter subscribers.
+          </div>
+        )}
+        {subsError && !subsNotFound && <div className="m-4 rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{subsError}</div>}
+        {subsLoading ? (
+          <div className="p-8 text-center text-gray-600">Loading subscribers...</div>
+        ) : subscribers.length === 0 ? (
+          <div className="p-8 text-center text-gray-600">No subscribers found.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Subscribed At</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {subscribers.map((s, idx) => {
+                  const email = s?.email || s?.subscriber_email || s?.user?.email || s?.contact || s?.address || '—';
+                  const when = s?.timestamp || s?.created_at || s?.subscribed_at || s?.created || s?.date || null;
+                  return (
+                    <tr key={s.id || idx} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-700">{s.id || idx + 1}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{email}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{when ? new Date(when).toLocaleString() : '—'}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -404,6 +514,25 @@ const SimpleAdminDashboard = () => {
   const [referralSearch, setReferralSearch] = useState('');
   const [referralRewardFilter, setReferralRewardFilter] = useState(''); // '', earned, not_earned
 
+  const fetchAllReferrals = useCallback(async () => {
+    if (referralsLoading) return;
+    setReferralsLoading(true);
+    setReferralsError('');
+    try {
+      const data = await adminAPI.getAllReferrals();
+      // API returns an array
+      setReferrals(Array.isArray(data) ? data : (data.referrals || []));
+      const count = Array.isArray(data) ? data.length : (data?.referrals?.length || 0);
+      addActivity('Referrals Loaded', `Fetched ${count} referrals`, 'success');
+    } catch (err) {
+      console.error('Error fetching referrals:', err);
+      setReferralsError((err && (err.message || err.detail)) || 'Failed to fetch referrals');
+      setReferrals([]);
+    } finally {
+      setReferralsLoading(false);
+    }
+  }, [addActivity]);
+
   // Inquiries (admin or super-admin)
   const [contacts, setContacts] = useState([]);
   const [contactsLoading, setContactsLoading] = useState(false);
@@ -413,6 +542,23 @@ const SimpleAdminDashboard = () => {
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactsSortKey, setContactsSortKey] = useState('id');
   const [contactsSortDir, setContactsSortDir] = useState('desc'); // 'asc' | 'desc'
+
+  const fetchAllContacts = useCallback(async () => {
+    if (contactsLoading) return;
+    setContactsLoading(true);
+    setContactsError('');
+    try {
+      const data = await contactAPI.getAllContacts();
+      const list = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
+      setContacts(list);
+      addActivity('Inquiries Loaded', `Fetched ${list.length} inquiries`, 'success');
+    } catch (err) {
+      setContactsError(err?.message || err?.detail || 'Failed to fetch inquiries');
+      setContacts([]);
+    } finally {
+      setContactsLoading(false);
+    }
+  }, [addActivity]);
 
   // Fetch users on component mount
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -451,12 +597,14 @@ const SimpleAdminDashboard = () => {
   }, [activeSection, user, fetchAllContacts]);
 
   // Fetch newsletters when Newsletters section is opened
+  // Intentionally depend only on stable values to avoid loops from callback identity changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if ((user?.userType === 'admin' || user?.userType === 'super-admin') && activeSection === 'newsletters') {
       fetchAllNewsletters();
+      fetchSubscribers();
     }
-  }, [activeSection, user, fetchAllNewsletters]);
+  }, [activeSection, user]);
 
   // Ensure users are available when opening Rewards section
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -486,39 +634,7 @@ const SimpleAdminDashboard = () => {
     return () => clearInterval(id);
   }, [user]);
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await adminAPI.getAllUsers();
-      const fetched = data.users || data || [];
-      setUsers(fetched);
-      addActivity('Users Loaded', `Fetched ${fetched.length} users`, 'success');
-    } catch (err) {
-      console.error('Error fetching users:', err);
-      setError((err && (err.message || err.detail)) || 'Failed to fetch users');
-    } finally {
-      setLoading(false);
-    }
-  }, [addActivity]);
-
-  const fetchTransactions = useCallback(async () => {
-    if (txLoading) return;
-    setTxLoading(true);
-    setTxError('');
-    try {
-      const data = await adminAPI.getAllTransactions();
-      const list = data.transactions || [];
-      setTransactions(Array.isArray(list) ? list : []);
-      addActivity('Payments Loaded', `Fetched ${Array.isArray(list) ? list.length : 0} transactions`, 'success');
-    } catch (err) {
-      console.error('Error fetching transactions:', err);
-      setTxError((err && (err.message || err.detail)) || 'Failed to fetch transactions');
-      setTransactions([]);
-    } finally {
-      setTxLoading(false);
-    }
-  }, [txLoading, addActivity]);
+  
 
   const viewTransactionDetails = async (txId) => {
     if (!txId) return;
@@ -554,24 +670,7 @@ const SimpleAdminDashboard = () => {
     }
   };
 
-  const fetchAllReferrals = useCallback(async () => {
-    if (referralsLoading) return;
-    setReferralsLoading(true);
-    setReferralsError('');
-    try {
-      const data = await adminAPI.getAllReferrals();
-      // API returns an array
-      setReferrals(Array.isArray(data) ? data : (data.referrals || []));
-      const count = Array.isArray(data) ? data.length : (data?.referrals?.length || 0);
-      addActivity('Referrals Loaded', `Fetched ${count} referrals`, 'success');
-    } catch (err) {
-      console.error('Error fetching referrals:', err);
-      setReferralsError((err && (err.message || err.detail)) || 'Failed to fetch referrals');
-      setReferrals([]);
-    } finally {
-      setReferralsLoading(false);
-    }
-  }, [referralsLoading, addActivity]);
+  
 
   const viewReferralDetails = async (refId) => {
     if (!refId) return;
@@ -750,22 +849,7 @@ const SimpleAdminDashboard = () => {
     }
   };
 
-  const fetchAllContacts = useCallback(async () => {
-    if (contactsLoading) return;
-    setContactsLoading(true);
-    setContactsError('');
-    try {
-      const data = await contactAPI.getAllContacts();
-      const list = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
-      setContacts(list);
-      addActivity('Inquiries Loaded', `Fetched ${list.length} inquiries`, 'success');
-    } catch (err) {
-      setContactsError(err?.message || err?.detail || 'Failed to fetch inquiries');
-      setContacts([]);
-    } finally {
-      setContactsLoading(false);
-    }
-  }, [contactsLoading, addActivity]);
+  
 
   const viewContact = async (contactId) => {
     if (!contactId) return;
@@ -1938,117 +2022,117 @@ const SimpleAdminDashboard = () => {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Client Details Modal */}
-      {showClientModal && selectedClient && (
-        <div className="modal-overlay fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4" onClick={() => setShowClientModal(false)}>
-          <div className="client-modal bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="modal-header px-6 py-4 border-b flex items-center justify-between">
-              <h3><span className="material-icons">people</span> Client Details</h3>
-              <button onClick={() => setShowClientModal(false)} className="modal-close text-gray-500 hover:text-gray-700">×</button>
-            </div>
-            <div className="modal-content p-6">
-              <div className="client-details-grid">
-                <div className="detail-section">
-                  <h4><span className="material-icons">person</span> Basic Information</h4>
-                  <div className="detail-row">
-                    <label>ID:</label>
-                    <span>{selectedClient.id}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>Name:</label>
-                    <span>{selectedClient.username}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>Email:</label>
-                    <span>{selectedClient.email}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>User Type:</label>
-                    <span className={`user-type ${selectedClient.userType}`}>
-                      {selectedClient.userType}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="detail-section">
-                  <h4><span className="material-icons">contact_phone</span> Contact Information</h4>
-                  <div className="detail-row">
-                    <label>Phone:</label>
-                    <span>{selectedClient.phone_no || 'N/A'}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>County:</label>
-                    <span>{selectedClient.county || 'N/A'}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>Age:</label>
-                    <span>{selectedClient.age || 'N/A'}</span>
-                  </div>
-                  <div className="detail-row">
-                    <label>Gender:</label>
-                    <span>{selectedClient.gender || 'N/A'}</span>
-                  </div>
-                </div>
-
-                <div className="detail-section">
-                  <h4><span className="material-icons">account_circle</span> Account Status</h4>
-                  <div className="detail-row">
-                    <label>Email Verified:</label>
-                    <span className={`status ${selectedClient.is_email_verified ? 'verified' : 'pending'}`}>
-                      <span className="material-icons">
-                        {selectedClient.is_email_verified ? 'verified' : 'pending'}
+        
+        {/* Client Details Modal */}
+        {showClientModal && selectedClient && (
+          <div className="modal-overlay fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4" onClick={() => setShowClientModal(false)}>
+            <div className="client-modal bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="modal-header px-6 py-4 border-b flex items-center justify-between">
+                <h3><span className="material-icons">people</span> Client Details</h3>
+                <button onClick={() => setShowClientModal(false)} className="modal-close text-gray-500 hover:text-gray-700">×</button>
+              </div>
+              <div className="modal-content p-6">
+                <div className="client-details-grid">
+                  <div className="detail-section">
+                    <h4><span className="material-icons">person</span> Basic Information</h4>
+                    <div className="detail-row">
+                      <label>ID:</label>
+                      <span>{selectedClient.id}</span>
+                    </div>
+                    <div className="detail-row">
+                      <label>Name:</label>
+                      <span>{selectedClient.username}</span>
+                    </div>
+                    <div className="detail-row">
+                      <label>Email:</label>
+                      <span>{selectedClient.email}</span>
+                    </div>
+                    <div className="detail-row">
+                      <label>User Type:</label>
+                      <span className={`user-type ${selectedClient.userType}`}>
+                        {selectedClient.userType}
                       </span>
-                      {selectedClient.is_email_verified ? 'Verified' : 'Pending'}
-                    </span>
+                    </div>
                   </div>
-                  <div className="detail-row">
-                    <label>Registration Status:</label>
-                    <span className={`status ${selectedClient.registered ? 'verified' : 'pending'}`}>
-                      <span className="material-icons">
-                        {selectedClient.registered ? 'verified' : 'pending'}
+
+                  <div className="detail-section">
+                    <h4><span className="material-icons">contact_phone</span> Contact Information</h4>
+                    <div className="detail-row">
+                      <label>Phone:</label>
+                      <span>{selectedClient.phone_no || 'N/A'}</span>
+                    </div>
+                    <div className="detail-row">
+                      <label>County:</label>
+                      <span>{selectedClient.county || 'N/A'}</span>
+                    </div>
+                    <div className="detail-row">
+                      <label>Age:</label>
+                      <span>{selectedClient.age || 'N/A'}</span>
+                    </div>
+                    <div className="detail-row">
+                      <label>Gender:</label>
+                      <span>{selectedClient.gender || 'N/A'}</span>
+                    </div>
+                  </div>
+
+                  <div className="detail-section">
+                    <h4><span className="material-icons">account_circle</span> Account Status</h4>
+                    <div className="detail-row">
+                      <label>Email Verified:</label>
+                      <span className={`status ${selectedClient.is_email_verified ? 'verified' : 'pending'}`}>
+                        <span className="material-icons">
+                          {selectedClient.is_email_verified ? 'verified' : 'pending'}
+                        </span>
+                        {selectedClient.is_email_verified ? 'Verified' : 'Pending'}
                       </span>
-                      {selectedClient.registered ? 'Registered' : 'Not Registered'}
-                    </span>
+                    </div>
+                    <div className="detail-row">
+                      <label>Registration Status:</label>
+                      <span className={`status ${selectedClient.registered ? 'verified' : 'pending'}`}>
+                        <span className="material-icons">
+                          {selectedClient.registered ? 'verified' : 'pending'}
+                        </span>
+                        {selectedClient.registered ? 'Registered' : 'Not Registered'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-            <div className="modal-actions px-6 py-4 border-t flex items-center justify-end gap-3">
-              <button className="btn-cancel inline-flex items-center px-4 py-2 rounded-lg border bg-white text-gray-700 hover:bg-gray-50" onClick={() => setShowClientModal(false)}>
-                Close
-              </button>
-              <button className="btn-action inline-flex items-center px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
-                <span className="material-icons">message</span>
-                Send Message
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Logout Confirmation Modal */}
-      {showLogoutConfirm && (
-        <div className="modal-overlay fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
-          <div className="modal bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-            <div className="modal-header px-6 py-4 border-b">
-              <h3><span className="material-icons">logout</span> Confirm Logout</h3>
-            </div>
-            <div className="modal-content p-6">
-              <p>Are you sure you want to logout from the admin panel?</p>
-            </div>
-            <div className="modal-actions px-6 py-4 border-t flex items-center justify-end gap-3">
-              <button className="btn-cancel inline-flex items-center px-4 py-2 rounded-lg border bg-white text-gray-700 hover:bg-gray-50" onClick={cancelLogout}>
-                Cancel
-              </button>
-              <button className="btn-confirm inline-flex items-center px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700" onClick={confirmLogout}>
-INUE            Logout
-              </button>
+              <div className="modal-actions px-6 py-4 border-t flex items-center justify-end gap-3">
+                <button className="btn-cancel inline-flex items-center px-4 py-2 rounded-lg border bg-white text-gray-700 hover:bg-gray-50" onClick={() => setShowClientModal(false)}>
+                  Close
+                </button>
+                <button className="btn-action inline-flex items-center px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
+                  <span className="material-icons">message</span>
+                  Send Message
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+        
+        {/* Logout Confirmation Modal */}
+        {showLogoutConfirm && (
+          <div className="modal-overlay fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+            <div className="modal bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+              <div className="modal-header px-6 py-4 border-b">
+                <h3><span className="material-icons">logout</span> Confirm Logout</h3>
+              </div>
+              <div className="modal-content p-6">
+                <p>Are you sure you want to logout from the admin panel?</p>
+              </div>
+              <div className="modal-actions px-6 py-4 border-t flex items-center justify-end gap-3">
+                <button className="btn-cancel inline-flex items-center px-4 py-2 rounded-lg border bg-white text-gray-700 hover:bg-gray-50" onClick={cancelLogout}>
+                  Cancel
+                </button>
+                <button className="btn-confirm inline-flex items-center px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700" onClick={confirmLogout}>
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

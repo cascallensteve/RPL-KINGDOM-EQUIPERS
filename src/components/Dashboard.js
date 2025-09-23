@@ -13,7 +13,7 @@ import {
 import ReferralCard from './ReferralCard';
 
 const Dashboard = () => {
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, updateUser, verifyUserData, hasUserPaid } = useAuth();
   const navigate = useNavigate();
   const [paymentStatus, setPaymentStatus] = useState('pending');
   const [showProfile, setShowProfile] = useState(false);
@@ -29,30 +29,61 @@ const Dashboard = () => {
   
 
   useEffect(() => {
+    // Verify user data integrity first
+    if (user && !verifyUserData()) {
+      console.error('User data integrity check failed, logging out');
+      logout();
+      navigate('/login', { replace: true });
+      return;
+    }
+
     const checkPaymentStatus = async () => {
       try {
+        console.log('🔍 Dashboard checking payment status for user:', user?.id);
+        
+        // Check if user already has payment status in context
+        if (user?.has_paid === true) {
+          console.log('✅ User already marked as paid in context');
+          setPaymentStatus('completed');
+          return;
+        }
+        
         // Check local storage first for quick access (scoped per user)
         const localKey = user?.id ? `payment_completed_${user.id}` : null;
         const paymentCompleted = localKey ? localStorage.getItem(localKey) === 'true' : false;
         if (paymentCompleted) {
+          console.log('✅ Payment completed according to local storage');
           setPaymentStatus('completed');
+          // Update user context to reflect payment status
+          updateUser({ ...user, has_paid: true });
           return;
         }
         
         // If no local storage info, check with the server
         if (user?.id) {
+          console.log('🔄 Checking payment status with server for user:', user.id);
           const response = await authAPI.getUserPaymentStatus(user.id);
+          console.log('📡 Server payment status response:', response);
+          
           if (response?.has_paid) {
+            console.log('✅ Server confirms payment completed');
             setPaymentStatus('completed');
             try {
               if (user?.id) localStorage.setItem(`payment_completed_${user.id}`, 'true');
             } catch (_) {}
             updateUser({ ...user, has_paid: true });
             return;
+          } else {
+            console.log('❌ Server says payment not completed');
+            // Clear any stale local cache
+            try {
+              if (user?.id) localStorage.removeItem(`payment_completed_${user.id}`);
+            } catch (_) {}
           }
         }
         
         // If we get here, payment is required; show pending status and prompt instead of redirect
+        console.log('⏳ Payment required for user:', user?.id);
         setPaymentStatus('pending');
         
       } catch (error) {
@@ -66,6 +97,12 @@ const Dashboard = () => {
 
     // Initialize profile data with only registration fields
     if (user) {
+      console.log('🔍 Dashboard initializing profile data for user:', {
+        id: user.id,
+        email: user.email,
+        username: user.username
+      });
+      
       setProfileData({
         username: user.username || '',
         email: user.email || '',
@@ -76,7 +113,7 @@ const Dashboard = () => {
         subcounty: user.subcounty || ''
       });
     }
-  }, [user, navigate, updateUser]);
+  }, [user, navigate, updateUser, verifyUserData, logout]);
 
   // Keep subscribeEmail in sync when user changes
   useEffect(() => {
@@ -432,7 +469,7 @@ const Dashboard = () => {
   }
 
   const renderPaymentReminder = () => {
-    if (paymentStatus === 'completed' || user?.has_paid) return null;
+    if (paymentStatus === 'completed' || hasUserPaid()) return null;
     
     return (
       <div className="payment-reminder">
@@ -564,7 +601,7 @@ const Dashboard = () => {
         {/* Referral Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-2">
-            {!user?.has_paid && (
+            {!hasUserPaid() && (
               <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800 p-3 text-sm">
                 Referrals are locked until payment is completed.
               </div>

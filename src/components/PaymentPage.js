@@ -18,11 +18,59 @@ const PaymentPage = () => {
 
   const REGISTRATION_FEE = 1; // 1 shilling
 
-  // Redirect if user has already paid
+  // Check payment status from server on component mount
   useEffect(() => {
-    if (user?.has_paid) {
-      navigate('/dashboard');
-    }
+    const checkPaymentStatus = async () => {
+      if (!user?.id) return;
+      
+      try {
+        console.log('🔍 PaymentPage checking payment status for user:', user.id);
+        
+        // Check if user already has payment status in context
+        if (user?.has_paid === true) {
+          console.log('✅ User already marked as paid in context, redirecting to dashboard');
+          navigate('/dashboard');
+          return;
+        }
+        
+        // Check local storage first
+        const localKey = `payment_completed_${user.id}`;
+        const localPaymentCompleted = localStorage.getItem(localKey) === 'true';
+        
+        if (localPaymentCompleted) {
+          console.log('✅ Payment completed according to local storage, verifying with server');
+          // Verify with server (best-effort)
+          try {
+            const response = await authAPI.getUserPaymentStatus(user.id);
+            console.log('📡 Server payment status response:', response);
+            
+            if (response?.has_paid) {
+              console.log('✅ Server confirms payment completed, redirecting to dashboard');
+              navigate('/dashboard');
+              return;
+            } else {
+              // Server explicitly reports unpaid – clear local flag
+              console.log('❌ Server says payment not completed, clearing local cache');
+              localStorage.removeItem(localKey);
+            }
+          } catch (err) {
+            // If endpoint is missing or fails, trust the local flag to avoid blocking paid users
+            console.warn('User payment status check failed; trusting local flag and redirecting to dashboard');
+            navigate('/dashboard');
+            return;
+          }
+        }
+        
+        // If we get here, payment is required
+        console.log('⏳ Payment required for user:', user.id);
+        
+      } catch (error) {
+        console.error('Error checking payment status:', error);
+        // If there's an error, assume payment is required
+      }
+    };
+
+    checkPaymentStatus();
   }, [user, navigate]);
 
   const handlePhoneChange = (e) => {
@@ -31,26 +79,23 @@ const PaymentPage = () => {
     setError('');
   };
 
-  // Allow user to continue and pay later; do not mark as paid or set deferred flags
-  const handlePayLater = () => {
-    setSuccess('You can complete payment anytime from your dashboard.');
-    setTimeout(() => navigate('/dashboard'), 800);
-  };
-
   const checkTransactionStatus = useCallback(async (requestId) => {
     try {
       setStatusChecking(true);
-      const response = await fetch(`https://kingdom-equippers-rpl.vercel.app/payments/transaction-status/${requestId}/`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to check transaction status');
-      }
-
-      const data = await response.json();
+      // Use centralized Axios API (handles baseURL, auth, errors)
+      const data = await authAPI.getTransactionStatus(requestId);
       
       if (data.status === 'success') {
         setPaymentStatus('completed');
         setSuccess(`🎉 Payment Successful! Receipt: ${data.receipt || 'N/A'}`);
+        
+        console.log('✅ Payment completed successfully for user:', {
+          user_id: user.id,
+          user_name: user.username,
+          user_email: user.email,
+          phone_used: phone,
+          receipt: data.receipt
+        });
         
         // Update user's payment status in local storage and context
         try {
@@ -68,8 +113,20 @@ const PaymentPage = () => {
 
         // Update payment status on the server
         try {
+          console.log('💰 Updating payment status for user:', {
+            user_id: user.id,
+            user_email: user.email,
+            user_name: user.username,
+            phone_used: phone,
+            transaction_id: data.transaction_id,
+            receipt: data.receipt
+          });
+          
           await authAPI.updatePaymentStatus({
             user_id: user.id,
+            user_email: user.email,
+            user_name: user.username,
+            phone_used: phone,
             transaction_id: data.transaction_id,
             receipt_number: data.receipt,
             amount: data.amount || REGISTRATION_FEE
@@ -135,12 +192,24 @@ const PaymentPage = () => {
     setPaymentStatus('processing');
 
     try {
-      // ✅ Using Axios-based authAPI
+      // ✅ Using Axios-based authAPI - Include current user information
       const data = await authAPI.makePayment({
         phone: fullPhone,
-        amount: REGISTRATION_FEE
+        amount: REGISTRATION_FEE,
+        user_id: user.id,  // Ensure payment is associated with current user
+        user_email: user.email,  // Include user email for verification
+        user_name: user.username  // Include user name for admin display
       });
 
+      console.log('💰 Payment initiated for user:', {
+        user_id: user.id,
+        user_email: user.email,
+        user_name: user.username,
+        phone_used: fullPhone
+      });
+      console.log('✅ IMPORTANT: Payment will be credited to current logged-in user:', user.username);
+      console.log('📱 Phone number used:', fullPhone, '(can be used for multiple users)');
+      console.log('👤 Payment recipient:', user.username, '(current logged-in user)');
       console.log('💰 Payment response:', data);
 
       if (data.response_code === "0" || data.success) {
@@ -194,6 +263,45 @@ const PaymentPage = () => {
 
           <h2 className="payment-title">Complete Your Registration</h2>
           <p className="payment-subtitle">Please pay the registration fee to continue.</p>
+          
+          {/* Show whose account this payment is for */}
+          <div className="alert alert-info" style={{ 
+            backgroundColor: '#f0f9ff', 
+            border: '2px solid #0ea5e9', 
+            color: '#0c4a6e',
+            padding: '16px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            fontWeight: 'bold'
+          }}>
+            <div style={{ fontSize: '16px', marginBottom: '8px' }}>
+              💳 <strong>Payment for: {user.username}</strong>
+            </div>
+            <div style={{ fontSize: '14px', marginBottom: '8px' }}>
+              Email: {user.email}
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>
+              ✅ This payment will be credited to your account ({user.username}) regardless of which phone number you use.
+              <br />
+              📱 You can use any M-Pesa phone number - it doesn't have to be yours.
+              <br />
+              👤 Admin will see YOUR details (not the phone number owner's details).
+            </div>
+          </div>
+          
+          {/* Special message for referred users */}
+          {user?.referred_by && (
+            <div className="alert alert-info" style={{ 
+              backgroundColor: '#e3f2fd', 
+              border: '1px solid #2196f3', 
+              color: '#1976d2',
+              padding: '12px',
+              borderRadius: '8px',
+              marginBottom: '20px'
+            }}>
+              <strong>Welcome!</strong> You were referred by someone. Complete your payment to unlock all features and start earning rewards through your own referrals.
+            </div>
+          )}
 
           <div className="payment-summary">
             <div className="summary-item">
@@ -231,14 +339,6 @@ const PaymentPage = () => {
                 disabled={loading || paymentStatus !== 'pending'}
               >
                 {loading ? 'Processing...' : `Pay Now (KES ${REGISTRATION_FEE})`}
-              </button>
-              <button 
-                type="button" 
-                className="btn-secondary"
-                onClick={handlePayLater}
-                disabled={paymentStatus !== 'pending'}
-              >
-                Pay Later
               </button>
             </div>
           </form>

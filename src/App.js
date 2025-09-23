@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
@@ -20,6 +20,7 @@ import './App.css';
 // Simple Protected Route Component with role support
 const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles = null }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   console.log('ProtectedRoute:', { 
     requireAdmin, 
@@ -66,7 +67,16 @@ const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles = null })
   }
 
   // Note: Unpaid users are allowed to access dashboard and see a payment prompt.
-  // We no longer globally redirect unpaid users here to allow a "Pay Later" option.
+  // Enforce payment for non-admin users before accessing protected routes,
+  // but do NOT redirect if we're already on the payment page.
+  // Respect a local per-user completion flag to prevent re-prompting paid users after re-login.
+  const currentPath = location?.pathname || '/';
+  const paymentCompletedFlag = user?.id ? localStorage.getItem(`payment_completed_${user.id}`) === 'true' : false;
+  const hasPaid = !!user?.has_paid || paymentCompletedFlag;
+  if (!['admin','super-admin'].includes(user.userType) && !hasPaid && currentPath !== '/payment') {
+    console.log('Unpaid user attempting to access protected content, redirecting to /payment');
+    return <Navigate to="/payment" replace />;
+  }
 
   console.log('Access granted');
   return children;

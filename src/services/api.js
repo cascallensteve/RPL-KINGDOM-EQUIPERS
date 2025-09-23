@@ -26,8 +26,9 @@ api.interceptors.request.use((config) => {
   const user = localStorage.getItem('rpl_user');
   const userData = user ? JSON.parse(user) : null;
 
-  // Allow opting out of auth header for public endpoints
-  const skipAuth = !!(config.headers && (config.headers['X-Skip-Auth'] === true || config.headers['X-Skip-Auth'] === 'true'));
+  // Check if this is a public endpoint that should skip auth
+  const publicEndpoints = ['/login', '/signUp', '/admin-signUp', '/super-admin-signUp', '/verify-email', '/forgot-password', '/reset-password', '/resend-verification-otp', '/newsletters/subscribe', '/newsletters/contact-us'];
+  const isPublicEndpoint = publicEndpoints.some(endpoint => config.url?.includes(endpoint));
   
   // Clean token if it has quotes around it
   if (token && token.startsWith('"') && token.endsWith('"')) {
@@ -35,20 +36,30 @@ api.interceptors.request.use((config) => {
     localStorage.setItem('rpl_token', token); // Save cleaned token
   }
   
+  // Validate user data integrity
+  if (userData && (!userData.id || !userData.email)) {
+    console.warn('🔑 Invalid user data detected in API interceptor, clearing session');
+    localStorage.removeItem('rpl_token');
+    localStorage.removeItem('rpl_user');
+    token = null;
+  }
+  
   console.log('🔑 API Request Interceptor:', { 
     url: config.url, 
     token: token ? `${token.substring(0, 20)}...` : 'No token',
     userType: userData?.userType,
+    userId: userData?.id,
     hasAuthHeader: !!config.headers.Authorization,
-    skipAuth
+    isPublicEndpoint
   });
   
-  if (!skipAuth && token) {
+  // Only add auth header for non-public endpoints
+  if (!isPublicEndpoint && token) {
     // Prefer DRF Token scheme by default; preserve explicit prefixes if present
     const hasPrefix = token.startsWith('Bearer ') || token.startsWith('Token ');
     config.headers.Authorization = hasPrefix ? token : `Token ${token}`;
     console.log('✅ Authorization header added (scheme):', String(config.headers.Authorization).split(' ')[0]);
-  } else if (skipAuth && config.headers.Authorization) {
+  } else if (isPublicEndpoint && config.headers.Authorization) {
     delete config.headers.Authorization;
   }
 
@@ -87,6 +98,7 @@ const throwApiError = (error, defaultMessage = 'Request failed') => {
     throw new Error(defaultMessage);
   }
 };
+
 
 // 🔹 Handle unverified / unauthorized users globally
 api.interceptors.response.use(
@@ -265,6 +277,31 @@ export const authAPI = {
       throwApiError(error);
     }
   },
+
+  // Check transaction status by CheckoutRequestID
+  getTransactionStatus: async (checkoutRequestId) => {
+    try {
+      const attempts = [
+        `/payments/transaction-status/${checkoutRequestId}/`,
+        `/payments/transaction-status/${checkoutRequestId}`,
+      ];
+      let lastError = null;
+      for (const url of attempts) {
+        try {
+          const response = await api.get(url);
+          return response.data; // expected: { status: 'success'|'failed'|..., receipt, transaction_id, amount }
+        } catch (err) {
+          lastError = err;
+          const status = err?.response?.status || 0;
+          const retriable = [404, 405, 301, 302, 307, 308];
+          if (!retriable.includes(status)) break;
+        }
+      }
+      throwApiError(lastError || new Error('Failed to check transaction status'));
+    } catch (error) {
+      throwApiError(error);
+    }
+  },
 };
 
 // ================== CONTACT / INQUIRIES API ==================
@@ -404,12 +441,58 @@ export const newsletterAPI = {
   // Public subscribe to newsletter
   subscribe: async (email) => {
     try {
-      // Include both keys for compatibility with different backends
-      const payload = { email, subscriber_email: email };
-      const response = await api.post('/newsletters/subscribe', payload, {
-        headers: { 'X-Skip-Auth': 'true' },
-      });
-      return response.data; // { message }
+      // Try multiple payload and URL variants for backend compatibility
+      const attempts = [
+        { url: '/newsletters/subscribe', payload: { email } },
+        { url: '/newsletters/subscribe/', payload: { email } },
+        { url: '/newsletters/subscribe', payload: { subscriber_email: email } },
+        { url: '/newsletters/subscribe/', payload: { subscriber_email: email } },
+      ];
+
+      let lastError = null;
+      for (const attempt of attempts) {
+        try {
+          const response = await api.post(attempt.url, attempt.payload);
+          // Normalize success shape
+          const msg = response?.data?.message || 'Subscribed successfully!';
+          return { message: msg };
+        } catch (err) {
+          // If already subscribed, treat as success
+          const data = err?.response?.data;
+          const status = err?.response?.status;
+          const text = typeof data === 'string' ? data : (data?.detail || data?.message || '');
+          if (
+            status === 200 ||
+            (typeof text === 'string' && /already\s*subscrib(ed|er)/i.test(text)) ||
+            (data && (data.already_subscribed || data.subscribed === true))
+          ) {
+            return { message: 'Already subscribed.' };
+          }
+
+          // Save error and continue to next variant on common path errors
+          lastError = err;
+          const retriableStatus = [404, 405, 308, 301, 302, 307];
+          if (!retriableStatus.includes(status || 0)) {
+            break; // do not continue if it's a validation or server error
+          }
+        }
+      }
+
+      // Surface backend validation details when present
+      const resp = lastError?.response?.data;
+      if (resp && typeof resp === 'object') {
+        const msgs = [];
+        for (const [k, v] of Object.entries(resp)) {
+          if (Array.isArray(v)) msgs.push(`${k}: ${v.join(', ')}`);
+          else if (typeof v === 'string') msgs.push(`${k}: ${v}`);
+        }
+        if (msgs.length) {
+          const err = new Error(msgs.join(' | '));
+          Object.assign(err, resp);
+          throw err;
+        }
+      }
+      throwApiError(lastError || new Error('Subscription failed'));
     } catch (error) {
       // Surface backend validation details when present
       const resp = error.response?.data;
@@ -432,8 +515,24 @@ export const newsletterAPI = {
   // Admin: send newsletter to subscribers
   sendNewsletter: async ({ subject, body }) => {
     try {
-      const response = await api.post('/newsletters/send-newsletter', { subject, body });
-      return response.data; // { message }
+      const attempts = [
+        { url: '/newsletters/send-newsletter', payload: { subject, body } },
+        { url: '/newsletters/send-newsletter/', payload: { subject, body } },
+      ];
+      let lastError = null;
+      for (const a of attempts) {
+        try {
+          const response = await api.post(a.url, a.payload);
+          return response.data; // { message }
+        } catch (err) {
+          lastError = err;
+          const status = err?.response?.status || 0;
+          const retriable = [404, 405, 301, 302, 307, 308];
+          if (!retriable.includes(status)) break;
+        }
+      }
+      console.error('Newsletter send failed. Last attempted URL:', lastError?.config?.url, 'Status:', lastError?.response?.status, 'Data:', lastError?.response?.data);
+      throwApiError(lastError || new Error('Failed to send newsletter'));
     } catch (error) {
       throwApiError(error);
     }
@@ -442,8 +541,24 @@ export const newsletterAPI = {
   // Admin: fetch all newsletters
   getAllNewsletters: async () => {
     try {
-      const response = await api.get('/newsletters/all-newsletters');
-      return response.data; // { message, Newsletters: [...] }
+      const attempts = [
+        { url: '/newsletters/all-newsletters' },
+        { url: '/newsletters/all-newsletters/' },
+      ];
+      let lastError = null;
+      for (const a of attempts) {
+        try {
+          const response = await api.get(a.url);
+          return response.data; // { message, Newsletters: [...] }
+        } catch (err) {
+          lastError = err;
+          const status = err?.response?.status || 0;
+          const retriable = [404, 405, 301, 302, 307, 308];
+          if (!retriable.includes(status)) break;
+        }
+      }
+      console.error('Fetch all newsletters failed. Last attempted URL:', lastError?.config?.url, 'Status:', lastError?.response?.status, 'Data:', lastError?.response?.data);
+      throwApiError(lastError || new Error('Failed to fetch newsletters'));
     } catch (error) {
       throwApiError(error);
     }
@@ -452,8 +567,77 @@ export const newsletterAPI = {
   // Admin: fetch newsletter details
   getNewsletterDetail: async (newsletterId) => {
     try {
-      const response = await api.get(`/newsletters/newsletter-detail/${newsletterId}/`);
-      return response.data; // { message, Newsletter }
+      const attempts = [
+        `/newsletters/newsletter-detail/${newsletterId}/`,
+        `/newsletters/newsletter-detail/${newsletterId}`,
+      ];
+      let lastError = null;
+      for (const url of attempts) {
+        try {
+          const response = await api.get(url);
+          return response.data; // { message, Newsletter }
+        } catch (err) {
+          lastError = err;
+          const status = err?.response?.status || 0;
+          const retriable = [404, 405, 301, 302, 307, 308];
+          if (!retriable.includes(status)) break;
+        }
+      }
+      console.error('Newsletter detail failed. Last attempted URL:', lastError?.config?.url, 'Status:', lastError?.response?.status, 'Data:', lastError?.response?.data);
+      throwApiError(lastError || new Error('Failed to fetch newsletter details'));
+    } catch (error) {
+      throwApiError(error);
+    }
+  },
+
+  // Admin: fetch newsletter subscribers list (endpoint variants supported)
+  getSubscribers: async () => {
+    try {
+      // If an explicit path is provided via env, use it first.
+      const explicitPath = process.env.REACT_APP_NEWSLETTER_SUBSCRIBERS_PATH;
+      const attempts = [
+        ...(explicitPath ? [{ url: explicitPath }] : []),
+        { url: '/newsletters/all-subscribers' },
+        { url: '/newsletters/all-subscribers/' },
+        { url: '/newsletters/subscribers' },
+        { url: '/newsletters/subscribers/' },
+      ];
+
+      let lastError = null;
+      for (const attempt of attempts) {
+        try {
+          const response = await api.get(attempt.url);
+          const data = response?.data;
+          // Normalize possible shapes
+          const list = Array.isArray(data)
+            ? data
+            : (Array.isArray(data?.subscribers) ? data.subscribers
+              : (Array.isArray(data?.Subscribers) ? data.Subscribers
+                : (Array.isArray(data?.results) ? data.results : null)));
+          if (Array.isArray(list)) return { subscribers: list };
+          // If server returns object per-subscriber under a key
+          if (data && typeof data === 'object') {
+            const firstArray = Object.values(data).find(v => Array.isArray(v));
+            if (Array.isArray(firstArray)) return { subscribers: firstArray };
+          }
+          // Fallback: treat success with no array as empty list
+          return { subscribers: [] };
+        } catch (err) {
+          lastError = err;
+          const status = err?.response?.status || 0;
+          const retriableStatus = [404, 405, 308, 301, 302, 307];
+          if (!retriableStatus.includes(status)) break;
+        }
+      }
+
+      // If all variants produced 404s, surface a graceful not-found signal
+      const status = lastError?.response?.status || 0;
+      if (status === 404) {
+        console.warn('Newsletter subscribers endpoint not found (404). Tried variants:', attempts.map(a => a.url));
+        return { subscribers: [], __notFound: true };
+      }
+      console.error('Failed to fetch subscribers. Last attempted URL:', lastError?.config?.url, 'Status:', status, 'Data:', lastError?.response?.data);
+      throwApiError(lastError || new Error('Failed to fetch subscribers'));
     } catch (error) {
       throwApiError(error);
     }
